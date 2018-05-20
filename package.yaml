@@ -24,12 +24,19 @@ dependencies:
 - base >= 4.7 && < 5
 - distributed-process
 - distributed-process-lifted
+- distributed-process-simplelocalnet
+- distributed-process-p2p
+- binary
+- mtl
+- network-transport-tcp
+- network-transport
+
 
 library:
   source-dirs: src
 
 executables:
-  hs-raft-exe:
+  raft:
     main: Main.hs
     source-dirs: app
     ghc-options:
