@@ -1,0 +1,10 @@
+#+TITLE: Project file for hs-raft
+#+AUTHOR: Bart Frenk
+#+EMAIL: bart.frenk@gmail.com
+
+
+* Steps
+** TODO Understand MonadBaseControl etc.
+** Use lenses for ServerState and ServerEnv
+** Abstract away noisy Control.Distributed.Lifted code
+receiveWait etc..

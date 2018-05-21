@@ -30,6 +30,9 @@ dependencies:
 - mtl
 - network-transport-tcp
 - network-transport
+- random
+- monad-control
+- transformers-base
 
 
 library:

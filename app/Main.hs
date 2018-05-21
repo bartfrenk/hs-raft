@@ -33,7 +33,9 @@ run frtable = do
         \  raft distributed <#nodes> <host> <port>"
 
 defaultEnv :: Raft.ServerEnv
-defaultEnv = Raft.ServerEnv {}
+defaultEnv = Raft.ServerEnv
+  { electionTimeout = Uniform 1000000 3000000
+  }
 
 defaultHost :: String
 defaultHost = "localhost"
@@ -42,4 +44,4 @@ defaultPort :: String
 defaultPort = "44444"
 
 main :: IO ()
-main = run Raft.__remoteTable
+main = run id

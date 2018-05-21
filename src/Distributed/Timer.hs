@@ -37,6 +37,9 @@ timer [] _ = pure ()
 timer mss@(ms:rest) process = do
   cancel <- expectTimeout ms
   case cancel of
-    Nothing -> timer rest process
+    Nothing -> do
+      say "sending timeout"
+      process
+      timer rest process
     Just Cancel -> pure ()
     Just Reset -> timer mss process
