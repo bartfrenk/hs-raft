@@ -33,6 +33,7 @@ dependencies:
 - random
 - monad-control
 - transformers-base
+- lens
 
 
 library:

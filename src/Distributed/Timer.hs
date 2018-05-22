@@ -1,5 +1,7 @@
-{-# LANGUAGE ConstraintKinds #-}
-{-# LANGUAGE DeriveGeneric   #-}
+{-# LANGUAGE ConstraintKinds            #-}
+{-# LANGUAGE DeriveGeneric              #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE LambdaCase                 #-}
 
 module Distributed.Timer where
 
@@ -8,6 +10,7 @@ import           Control.Distributed.Process.Lifted.Class (MonadProcess, liftP)
 import           Data.Binary                              (Binary)
 import           Data.Typeable                            (Typeable)
 import           GHC.Generics                             (Generic)
+import           Utils
 
 data TimerControl
   = Cancel
@@ -16,29 +19,26 @@ data TimerControl
 
 instance Binary TimerControl
 
-newtype TimerRef =
-  TimerRef ProcessId
+newtype Ref =
+  Ref ProcessId
 
 type Serializable a = (Binary a, Typeable a)
 
-startTimer ::
-     (Serializable a, MonadProcess m) => [Int] -> ProcessId -> a -> m TimerRef
-startTimer mss pid msg =
-  TimerRef `fmap` (liftP $ spawnLocal $ timer mss $ send pid msg)
+start ::
+     (Serializable a, MonadProcess m) => [Duration] -> ProcessId -> a -> m Ref
+start mss pid msg = Ref `fmap` (liftP $ spawnLocal $ timer mss $ send pid msg)
 
-resetTimer :: MonadProcess m => TimerRef -> m ()
-resetTimer (TimerRef pid) = liftP $ send pid Reset
+reset :: MonadProcess m => Ref -> m ()
+reset (Ref pid) = liftP $ send pid Reset
 
-cancelTimer :: MonadProcess m => TimerRef -> m ()
-cancelTimer (TimerRef pid) = liftP $ send pid Cancel
+cancel :: MonadProcess m => Ref -> m ()
+cancel (Ref pid) = liftP $ send pid Cancel
 
-timer :: [Int] -> Process () -> Process ()
+timer :: [Duration] -> Process () -> Process ()
 timer [] _ = pure ()
-timer mss@(ms:rest) process = do
-  cancel <- expectTimeout ms
-  case cancel of
+timer mss@(Duration us:rest) process = do
+  expectTimeout us >>= \case
     Nothing -> do
-      say "sending timeout"
       process
       timer rest process
     Just Cancel -> pure ()

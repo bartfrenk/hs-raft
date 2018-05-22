@@ -31,10 +31,12 @@ run frtable = do
         "Usage:\n\
         \  raft local <#nodes>\n\
         \  raft distributed <#nodes> <host> <port>"
+  where
+    seconds = (* 1000000)
 
 defaultEnv :: Raft.ServerEnv
 defaultEnv = Raft.ServerEnv
-  { electionTimeout = Uniform 1000000 3000000
+  { electionTimeout = Uniform (milliseconds 150) (milliseconds 300)
   }
 
 defaultHost :: String

@@ -12,3 +12,9 @@ data ElectionTimeout = ElectionTimeout
   deriving (Generic, Typeable)
 
 instance Binary ElectionTimeout
+
+
+data AppendEntries = AppendEntries
+  deriving (Generic, Typeable)
+
+instance Binary AppendEntries

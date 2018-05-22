@@ -3,14 +3,16 @@
 {-# LANGUAGE FlexibleInstances          #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE MultiParamTypeClasses      #-}
+{-# LANGUAGE TemplateHaskell            #-}
 {-# LANGUAGE TypeSynonymInstances       #-}
--- Maybe fix this one day
 {-# LANGUAGE UndecidableInstances       #-}
 
+-- Maybe fix this one day
 module Raft.Types where
 
 import           Control.Distributed.Process              (Process, ProcessId)
 import           Control.Distributed.Process.Lifted.Class
+import           Control.Lens
 import           Control.Monad.Base
 import           Control.Monad.Reader
 import           Control.Monad.State                      (MonadState, StateT,
@@ -21,12 +23,15 @@ import           Utils
 newtype Term =
   Term Int
 
+increment :: Term -> Term
+increment (Term n) = Term $ n + 1
+
 type ServerId = ProcessId
 
 -- | Server environment with parameters for the server that do not change at
 -- runtime, e.g. delay and timeout settings.
 data ServerEnv = ServerEnv
-  { electionTimeout :: RandomVar Int
+  { electionTimeout :: RandomVar Duration
   }
 
 data Role
@@ -36,15 +41,17 @@ data Role
   deriving (Eq, Show)
 
 data ServerState = ServerState
-  { currentTerm :: Term
-  , votedFor    :: Maybe ServerId
-  , role        :: Role
-  , peers       :: [ServerId]
+  { _currentTerm :: Term
+  , _votedFor    :: Maybe ServerId
+  , _role        :: Role
+  , _peers       :: [ServerId]
   }
+
+makeLenses ''ServerState
 
 type MonadServer m
    = ( MonadProcess m
-     , MonadRandom Int m
+     , MonadRandom Duration m
      , MonadProcessBase m
      , MonadState ServerState m
      , MonadReader ServerEnv m)
@@ -63,7 +70,7 @@ newtype ServerM a = ServerM
              , MonadIO
              )
 
-instance MonadRandom Int ServerM where
+instance MonadRandom Duration ServerM where
   sample = liftIO . sample
 
 evalServer :: ServerM a -> ServerState -> ServerEnv -> Process a
