@@ -18,13 +18,18 @@ import           Control.Monad.Reader
 import           Control.Monad.State                      (MonadState, StateT,
                                                            evalStateT)
 import           Control.Monad.Trans.Control
+import           Data.Binary
+import           Data.Typeable
 import           Utils
 
 newtype Term =
   Term Int
+  deriving (Binary, Eq, Ord, Typeable, Show)
 
 increment :: Term -> Term
 increment (Term n) = Term $ n + 1
+
+type ServerAddress = ProcessId
 
 type ServerId = ProcessId
 
@@ -44,7 +49,7 @@ data ServerState = ServerState
   { _currentTerm :: Term
   , _votedFor    :: Maybe ServerId
   , _role        :: Role
-  , _peers       :: [ServerId]
+  , _peers       :: [ServerAddress]
   }
 
 makeLenses ''ServerState
