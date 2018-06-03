@@ -27,8 +27,7 @@ delay :: MonadIO m => Duration -> m ()
 delay (Duration us) = liftIO $ threadDelay us
 
 data RandomVar a =
-  Uniform a
-          a
+  Uniform a a
 
 class MonadRandom a m where
   sample :: RandomVar a -> m a

@@ -24,15 +24,14 @@ newtype Ref =
 
 type Serializable a = (Binary a, Typeable a)
 
-start ::
-     (Serializable a, MonadProcess m) => [Duration] -> ProcessId -> a -> m Ref
-start mss pid msg = Ref `fmap` (liftP $ spawnLocal $ timer mss $ send pid msg)
+startTimer :: (Serializable a, MonadProcess m) => Duration -> ProcessId -> a -> m Ref
+startTimer ms pid msg = Ref `fmap` (liftP $ spawnLocal $ timer [ms] $ send pid msg)
 
-reset :: MonadProcess m => Ref -> m ()
-reset (Ref pid) = liftP $ send pid Reset
+resetTimer :: MonadProcess m => Ref -> m ()
+resetTimer (Ref pid) = liftP $ send pid Reset
 
-cancel :: MonadProcess m => Ref -> m ()
-cancel (Ref pid) = liftP $ send pid Cancel
+cancelTimer :: MonadProcess m => Ref -> m ()
+cancelTimer (Ref pid) = liftP $ send pid Cancel
 
 timer :: [Duration] -> Process () -> Process ()
 timer [] _ = pure ()

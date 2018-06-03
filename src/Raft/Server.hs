@@ -49,7 +49,8 @@ initElectionState = do
   timer <- startElectionTimer
   pendingVotes <- use peers >>= mapM sendVoteRequest
   pure $
-    ElectionState {timer = timer, pendingVotes = pendingVotes, received = 1, granted = 1}
+    ElectionState
+    {timer = timer, pendingVotes = pendingVotes, received = 1, granted = 1}
   where
     sendVoteRequest serverAddress = do
       (sendPort, receivePort) <- newChan
@@ -65,16 +66,15 @@ killElectionState :: MonadServer m => ElectionState -> m ()
 killElectionState estate = Timer.cancel $ timer estate
 
 candidate :: MonadServer m => m ()
-candidate = do
-  bracket initElectionState killElectionState loop
+candidate = bracket initElectionState killElectionState loop
   where
     loop estate = whenM (hasRole Candidate) $ handle estate loop
+
     handle :: MonadServer m => ElectionState -> (ElectionState -> m ()) -> m ()
     handle estate@ElectionState {..} cont =
       controlP $ \run ->
-        receiveWait $
-        [match $ run . (handleElectionTimeout estate cont)] ++
-        ((\p -> matchChan p $ run . handleVoteResponse estate cont) <$>
+                   receiveWait $ [ match $ run . (handleElectionTimeout estate cont)] ++
+                   ((\p -> matchChan p $ run . handleVoteResponse estate cont) <$>
          pendingVotes)
 
 handleElectionTimeout ::
@@ -91,28 +91,34 @@ handleVoteResponse ::
   -> (ElectionState -> m ())
   -> VoteResponse
   -> m ()
-handleVoteResponse ElectionState{..} cont VoteResponse{..} =
+handleVoteResponse ElectionState {..} cont VoteResponse {..} =
   ((< term) <$> use currentTerm) >>= \case
     True ->
-      let newElectionState = ElectionState
-             { timer = timer
-             , pendingVotes = pendingVotes
-             , granted = granted + if voteGranted then 1 else 0
-             , received = received + 1
-             }
+      let newElectionState =
+            ElectionState
+            { timer = timer
+            , pendingVotes = pendingVotes
+            , granted =
+                granted +
+                if voteGranted
+                  then 1
+                  else 0
+            , received = received + 1
+            }
       in electionResult newElectionState >>= \case
-        Won -> role .= Leader
-        Lost -> role .= Follower
-        Undecided -> cont newElectionState
-
+           Won -> role .= Leader
+           Lost -> role .= Follower
+           Undecided -> cont newElectionState
     False -> role .= Follower
 
 electionResult :: MonadServer m => ElectionState -> m ElectionResult
-electionResult ElectionState{received, granted} = do
+electionResult ElectionState {received, granted} = do
   n <- length <$> use peers
-  if granted > n `div` 2 then pure Won
-    else if granted + (n - received) <= n `div` 2 then pure Lost
-    else pure Undecided
+  if granted > n `div` 2
+    then pure Won
+    else if granted + (n - received) <= n `div` 2
+           then pure Lost
+           else pure Undecided
 
 data ElectionResult
   = Won

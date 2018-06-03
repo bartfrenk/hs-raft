@@ -1,14 +1,14 @@
 module Distributed.Bootstrap where
 
-import           Control.Distributed.Process
-import           Control.Monad
+import Control.Distributed.Process
+import Control.Monad
 
 type Peer a = [ProcessId] -> Process a
 
 -- | Starts the process `cont` and passes it the process IDs of all processes
 -- registered under `name` on any of the specified nodes. Waits until there are
 -- exactly `n` such processes.
-masterless :: Int -> [NodeId] -> String -> Peer a -> Process a
+masterless :: Int -> [NodeId] -> String -> ([ProcessId] -> Process a) -> Process a
 masterless n nids name cont = do
   self <- getSelfPid
   register name self
@@ -37,3 +37,10 @@ master n cont = do
   loop
   where
     loop = loop
+
+
+test :: IO Int
+test = pure 5
+
+bla :: IO Int
+bla = test

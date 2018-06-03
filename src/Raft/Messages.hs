@@ -10,14 +10,14 @@ import           GHC.Generics
 
 import           Raft.Types
 
-data ElectionTimeout =
-  ElectionTimeout
+data Tick = Tick
   deriving (Generic, Typeable)
 
-instance Binary ElectionTimeout
+instance Binary Tick
 
-data AppendEntries =
-  AppendEntries
+data AppendEntries = AppendEntries
+  { term :: Int
+  }
   deriving (Generic, Typeable)
 
 instance Binary AppendEntries
@@ -36,3 +36,20 @@ data VoteResponse = VoteResponse
   } deriving (Generic, Show, Typeable)
 
 instance Binary VoteResponse
+
+data Vote = Vote
+  { term :: Int
+  , granted :: Bool
+  } deriving (Generic, Show, Typeable)
+
+instance Binary Vote
+
+data Ballot = Ballot
+  { term :: Int
+  , candidateID :: PeerID
+  , sendPort :: SendPort Vote
+  } deriving (Generic, Show, Typeable)
+
+instance Binary Ballot
+
+
