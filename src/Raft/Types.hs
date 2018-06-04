@@ -85,3 +85,5 @@ evalServer (ServerM server) state env = runReaderT (evalStateT server state) env
 -- New, simpler setup
 
 type PeerID = ProcessId
+
+type PeerAddress = ProcessId

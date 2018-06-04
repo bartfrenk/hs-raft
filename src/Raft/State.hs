@@ -10,6 +10,8 @@ module Raft.State
   , drawLeaderHeartbeatTimeout
   , setTerm
   , getTerm
+  , getPeers
+  , getSelfID
   , newEnv
   ) where
 
@@ -19,7 +21,7 @@ import Control.Concurrent.STM as STM
 import Data.Maybe
 
 import Utils
-import Raft.Types (PeerID)
+import Raft.Types (PeerID, PeerAddress)
 
 data Role = Candidate | Follower | Leader
 
@@ -28,6 +30,7 @@ data State = State
   { role :: TVar Role
   , term :: TVar Int
   , votedFor :: TVar (Maybe PeerID)
+  , peers :: TVar [PeerAddress]
   }
 
 data Config = Config
@@ -72,11 +75,19 @@ modifyTerm env f =
 getTerm :: MonadIO m => Env -> m Int
 getTerm env = liftIO $ readTVarIO (term $ state env)
 
+-- | Dependence on @Env@, since we might need to fabricate a custom ID type from
+-- the environment in the future. For now, just use the process ID.
+getSelfID :: Env -> Process PeerID
+getSelfID _ = getSelfPid
+
 incTerm :: MonadIO m => Env -> m ()
 incTerm env = modifyTerm env (+ 1)
 
 setRole :: MonadIO m => Env -> Role -> m ()
 setRole env =  liftIO . atomically . writeTVar (role $ state env)
+
+getPeers :: MonadIO m => Env -> m [PeerAddress]
+getPeers env = liftIO $ atomically $ readTVar (peers $ state env)
 
 drawElectionTimeout :: MonadIO m => Env -> m Duration
 drawElectionTimeout = undefined

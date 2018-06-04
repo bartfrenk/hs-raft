@@ -1,4 +1,5 @@
 {-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE RecordWildCards #-}
 
 module Raft.Candidate where
 
@@ -12,14 +13,20 @@ import Raft.Shared
 
 data Election = Election
   { pending :: [ReceivePort Vote]
-  , nTotal :: Int
+  , nReceived :: Int
   , nGranted :: Int
+  , nPeers :: Int
   }
 
 data Result = Loss | Win | Inconclusive
 
 result :: Election -> Result
-result = undefined
+result Election{..} = let threshold = (nPeers `div` 2) + 1
+         in if nGranted >= threshold
+            then Win
+            else if nGranted + (nPeers - nReceived) < threshold
+                 then Loss
+                 else Inconclusive
 
 processVote :: Env -> Election -> Vote -> Process (Status Election)
 processVote env e vote = do
@@ -28,8 +35,8 @@ processVote env e vote = do
   if t' <= t
     then pure $ InProgress $
          if granted vote
-           then e { nTotal = nTotal e + 1, nGranted = nGranted e + 1 }
-           else e { nTotal = nTotal e + 1, nGranted = nGranted e }
+           then e { nReceived = nReceived e + 1, nGranted = nGranted e + 1 }
+           else e { nReceived = nReceived e + 1, nGranted = nGranted e }
     else setTerm env t' >> pure Superseded
 
 processTimeout :: Tick -> Process (Status Election)
@@ -79,4 +86,20 @@ run env = bracket (startElectionTimer env) T.cancelTimer $ \_ -> do
         Timeout -> pure Candidate
         Superseded -> pure Follower
 
-    sendBallots = undefined
+    sendBallots = do
+      t <- getTerm env
+      selfID <- getSelfID env
+      pending <- mapM (sendSingleBallot t selfID) =<< getPeers env
+      pure $ Election
+        { pending = pending
+        , nReceived = 1
+        , nGranted = 1 -- vote for self
+        , nPeers = length pending + 1 -- @getPeers@ returns only others
+        }
+
+    sendSingleBallot t selfID peer = do
+      (s, r) <- newChan
+      let ballot =
+            Ballot { term = t, candidateID = selfID, sendPort = s }
+      send peer ballot
+      pure r
