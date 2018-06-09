@@ -36,6 +36,7 @@ dependencies:
 - transformers-base
 - lens
 - exceptions
+- time
 
 default-extensions: DuplicateRecordFields
 

@@ -34,7 +34,7 @@ type Serializable a = (Binary a, Typeable a)
 
 startTicker :: (Serializable a, MonadProcess m) => Duration -> ProcessId -> a -> m Ref
 startTicker dt pid msg =
-  let dts = iterate (mappend dt) dt
+  let dts = repeat dt
   in Ref `fmap` (liftP $ spawnLocal $ timer dts $ send pid msg)
 
 -- | Starts a timer. The timer sends a message `msg` to process `pid` after `dt`.

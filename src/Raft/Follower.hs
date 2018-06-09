@@ -34,13 +34,16 @@ run env = bracket (startLeaderHeartbeatTimer env) T.cancelTimer $ loop
         -- Waited too long for a heartbeat message from the leader.
         Timeout -> pure Candidate
 
-
 processAppendEntries :: Env -> T.Ref -> AppendEntries -> Process (Status ())
 processAppendEntries env timer msg =
   let t' = term (msg :: AppendEntries)
       cont = T.resetTimer timer >> (pure $ InProgress ())
       superseded = T.resetTimer timer
-  in checkTerm env t' cont superseded
+  in do
+    status <- checkTerm env t' cont superseded
+    send (sender msg) =<< newAppendEntriesResp env msg
+    pure status
+
 
 processTimeout :: Tick -> Process (Status ())
 processTimeout _ = pure $ Timeout

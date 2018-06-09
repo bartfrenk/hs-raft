@@ -1,6 +1,7 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 module Raft.Shared where
 
+import Control.Monad.Trans (MonadIO)
 import Control.Monad
 import Control.Distributed.Process
 
@@ -22,6 +23,11 @@ checkTerm env term cont superseded = do
   if term <= t
     then cont
     else setTerm env term >> superseded >> pure Superseded
+
+newAppendEntriesResp :: MonadIO m => Env -> AppendEntries -> m AppendEntriesResp
+newAppendEntriesResp env _ = do
+  tm <- getTerm env
+  pure $ AppendEntriesResp { term = tm }
 
 processBallot :: Env -> a -> Ballot -> Process (Status a)
 processBallot env x msg = do
@@ -48,3 +54,8 @@ processBallot env x msg = do
       say $ "Vote for " ++ show (candidateID msg) ++ " in " ++ show tm ++ ": " ++ show (not p)
       let vote = Vote { granted = not p, term = t }
       sendChan (sendPort (msg :: Ballot)) vote
+
+processAppendEntriesResp :: Env -> a -> AppendEntriesResp -> Process (Status a)
+processAppendEntriesResp env x msg =
+  let t = term (msg :: AppendEntriesResp)
+  in checkTerm env t (pure $ InProgress x) (pure ())

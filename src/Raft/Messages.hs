@@ -17,10 +17,17 @@ instance Binary Tick
 
 data AppendEntries = AppendEntries
   { term :: Int
+  , sender :: PeerAddress
   }
   deriving (Generic, Typeable)
 
 instance Binary AppendEntries
+
+data AppendEntriesResp = AppendEntriesResp
+  { term :: Int
+  } deriving (Generic, Typeable)
+
+instance Binary AppendEntriesResp
 
 data Vote = Vote
   { term :: Int

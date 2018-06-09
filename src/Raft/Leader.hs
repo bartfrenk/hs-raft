@@ -24,6 +24,7 @@ run env = bracket (startHeartbeatTicker env) T.cancelTimer $ loop
             [ match $ processBallot env ()
             , match $ processTicker env
             , match $ processAppendEntries env ()
+            , match $ processAppendEntriesResp env ()
             ]
           case status of
             InProgress () -> loop timer
@@ -34,7 +35,7 @@ run env = bracket (startHeartbeatTicker env) T.cancelTimer $ loop
 processTicker :: Env -> Tick -> Process (Status ())
 processTicker env _ = do
   t <- getTerm env
-  let msg = AppendEntries t
+  msg <- AppendEntries t <$> getSelfAddress env
   mapM_ (flip send msg) =<< getPeers env
   pure $ InProgress ()
 

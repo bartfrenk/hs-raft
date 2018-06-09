@@ -13,6 +13,7 @@ module Raft.State
   , getTerm
   , getPeers
   , getSelfID
+  , getSelfAddress
   , newEnv
   , getHeartbeatInterval
   ) where

@@ -47,9 +47,12 @@ processAppendEntries :: Env -> a -> AppendEntries -> Process (Status a)
 processAppendEntries env x msg = do
   t <- getTerm env
   let t' = term (msg :: AppendEntries)
-  if t' < t -- Note that the candidate is superseded when t = t'
+  status <- if t' < t -- Note that the candidate is superseded when t = t'
     then pure $ InProgress x
     else setTerm env t' >> pure Superseded
+  resp <- newAppendEntriesResp env msg
+  send (sender msg) resp
+  pure status
 
 -- | Starts the timer that sends a @Tick@ message to indicate that the election
 -- timed out.

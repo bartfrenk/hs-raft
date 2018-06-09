@@ -15,8 +15,8 @@ import           Raft
 
 config :: Config
 config = defaultConfig
-  { electionTimeout = (seconds 2, seconds 4)
-  , heartbeatInterval = milliseconds 10 }
+  { electionTimeout = (milliseconds 150, milliseconds 300)
+  , heartbeatInterval = milliseconds 1 }
 
 run :: (RemoteTable -> RemoteTable) -> IO ()
 run frtable = do
