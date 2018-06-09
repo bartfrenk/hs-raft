@@ -26,7 +26,8 @@ showRole Leader = "leader"
 -- | Runs a Raft server in environment `env` with role `role`.
 run :: Env -> Role -> Process ()
 run env role = do
-  say $ "Running server as " ++ showRole role
+  t <- getTerm env
+  say $ "Running in " ++ show t ++ " as " ++ showRole role
   role' <- case role of
     Follower -> Follower.run env
     Candidate -> Candidate.run env

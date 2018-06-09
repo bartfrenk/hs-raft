@@ -65,6 +65,7 @@ startElectionTimer env = do
 run :: Env -> Process Role
 run env = bracket (startElectionTimer env) T.cancelTimer $ \_ -> do
   incTerm env
+  voteFor env =<< getSelfID env
   e <- sendBallots
   awaitVotes e
 

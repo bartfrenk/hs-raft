@@ -13,6 +13,10 @@ newtype Duration =
   Duration Int
   deriving (Eq, Ord)
 
+instance Monoid Duration where
+  mempty = Duration 0
+  (Duration x) `mappend` (Duration y) = Duration (x + y)
+
 instance Show Duration where
   show (Duration us) = show us ++ " us"
 

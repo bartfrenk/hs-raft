@@ -34,7 +34,9 @@ processBallot env x msg = do
       sendChan (sendPort (msg :: Ballot)) vote
       pure $ InProgress x
     EQ -> sendVote t >> (pure $ InProgress x)
-    GT -> sendVote t >> (pure $ Superseded)
+    GT -> do
+      setTerm env t' -- fresh term without existing vote
+      sendVote t >> (pure $ Superseded)
   where
     sendVote :: Int -> Process ()
     sendVote t = do
@@ -42,5 +44,7 @@ processBallot env x msg = do
       -- threaded, it is probably better to make reading and setting the vote atomic.
       p <- hasVoted env
       when (not p) $ voteFor env $ candidateID msg
+      tm <- getTerm env
+      say $ "Vote for " ++ show (candidateID msg) ++ " in " ++ show tm ++ ": " ++ show (not p)
       let vote = Vote { granted = not p, term = t }
       sendChan (sendPort (msg :: Ballot)) vote

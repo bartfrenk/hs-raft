@@ -14,6 +14,7 @@ module Raft.State
   , getPeers
   , getSelfID
   , newEnv
+  , getHeartbeatInterval
   ) where
 
 import Control.Distributed.Process
@@ -34,10 +35,13 @@ data State = State
 
 defaultConfig :: Config
 defaultConfig = Config
-  { electionTimeout = (milliseconds 150, milliseconds 300) }
+  { electionTimeout = (milliseconds 150, milliseconds 300)
+  , heartbeatInterval = microseconds 500
+  }
 
 data Config = Config
   { electionTimeout :: (Duration, Duration)
+  , heartbeatInterval :: Duration
   }
 
 data Env = Env
@@ -55,6 +59,9 @@ newEnv gen config peers = do
     , config = config
     , gen = g
     }
+
+getHeartbeatInterval :: MonadIO m => Env -> m Duration
+getHeartbeatInterval = pure . heartbeatInterval . config
 
 newState :: MonadIO m => [PeerAddress] -> m State
 newState peers = liftIO $ State <$>
