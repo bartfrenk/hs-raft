@@ -10,11 +10,6 @@ import           GHC.Generics
 
 import           Raft.Types
 
-data Tick = Tick
-  deriving (Generic, Typeable)
-
-instance Binary Tick
-
 data AppendEntries = AppendEntries
   { term :: Int
   , sender :: PeerAddress

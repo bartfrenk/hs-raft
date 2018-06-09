@@ -16,7 +16,7 @@ startLeaderHeartbeatTimer :: Env -> Process T.Ref
 startLeaderHeartbeatTimer env = do
   d <- drawLeaderHeartbeatTimeout env
   pid <- getSelfPid
-  T.startTimer d pid Tick
+  T.startTimer d pid T.Tick
 
 -- | Runs the server in the `follower` role.
 run :: Env -> Process Role
@@ -45,5 +45,5 @@ processAppendEntries env timer msg =
     pure status
 
 
-processTimeout :: Tick -> Process (Status ())
+processTimeout :: T.Tick -> Process (Status ())
 processTimeout _ = pure $ Timeout

@@ -15,7 +15,7 @@ startHeartbeatTicker env = do
   dt <- getHeartbeatInterval env
   say $ "Heartbeat interval: " ++ show dt
   pid <- getSelfPid
-  T.startTicker dt pid Tick
+  T.startTicker dt pid T.Tick
 
 run :: Env -> Process Role
 run env = bracket (startHeartbeatTicker env) T.cancelTimer $ loop
@@ -32,7 +32,7 @@ run env = bracket (startHeartbeatTicker env) T.cancelTimer $ loop
             Timeout -> loop timer -- should not happen
 
 
-processTicker :: Env -> Tick -> Process (Status ())
+processTicker :: Env -> T.Tick -> Process (Status ())
 processTicker env _ = do
   t <- getTerm env
   msg <- AppendEntries t <$> getSelfAddress env

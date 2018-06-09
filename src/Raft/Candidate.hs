@@ -40,7 +40,7 @@ processVote env e vote = do
            else e { nReceived = nReceived e + 1, nGranted = nGranted e }
     else setTerm env t' >> pure Superseded
 
-processTimeout :: Tick -> Process (Status Election)
+processTimeout :: T.Tick -> Process (Status Election)
 processTimeout _ = pure Timeout
 
 processAppendEntries :: Env -> a -> AppendEntries -> Process (Status a)
@@ -61,7 +61,7 @@ startElectionTimer env = do
   d <- drawElectionTimeout env
   say $ "Election timeout: " ++ show d
   pid <- getSelfPid
-  T.startTimer d pid Tick
+  T.startTimer d pid T.Tick
 
 -- | Runs the server in the `candidate` role. The return value of this function
 -- is the new role to assume.

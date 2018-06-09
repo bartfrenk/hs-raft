@@ -5,6 +5,7 @@
 
 module Utils.Timer
   ( Ref
+  , Tick (..)
   , startTimer
   , startTicker
   , resetTimer
@@ -30,6 +31,11 @@ instance Binary TimerControl
 newtype Ref =
   Ref ProcessId
 
+data Tick = Tick
+  deriving (Generic, Typeable)
+
+instance Binary Tick
+
 type Serializable a = (Binary a, Typeable a)
 
 startTicker :: (Serializable a, MonadProcess m) => Duration -> ProcessId -> a -> m Ref
@@ -39,7 +45,8 @@ startTicker dt pid msg =
 
 -- | Starts a timer. The timer sends a message `msg` to process `pid` after `dt`.
 startTimer :: (Serializable a, MonadProcess m) => Duration -> ProcessId -> a -> m Ref
-startTimer dt pid msg = Ref `fmap` (liftP $ spawnLocal $ timer [dt] $ send pid msg)
+startTimer dt pid msg = do
+  Ref `fmap` (liftP $ spawnLocal $ timer [dt] $ send pid msg)
 
 -- | Resets the current duration until the next message to its original value.
 resetTimer :: MonadProcess m => Ref -> m ()
