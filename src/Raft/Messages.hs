@@ -22,21 +22,6 @@ data AppendEntries = AppendEntries
 
 instance Binary AppendEntries
 
-data VoteRequest = VoteRequest
-  { term        :: Term
-  , candidateId :: ServerId
-  , sendPort    :: SendPort VoteResponse
-  } deriving (Generic, Show, Typeable)
-
-instance Binary VoteRequest
-
-data VoteResponse = VoteResponse
-  { term        :: Term
-  , voteGranted :: Bool
-  } deriving (Generic, Show, Typeable)
-
-instance Binary VoteResponse
-
 data Vote = Vote
   { term :: Int
   , granted :: Bool

@@ -6,9 +6,10 @@ module Raft.Candidate where
 import Control.Monad.Catch
 import Control.Distributed.Process hiding (bracket)
 
-import qualified Distributed.Timer as T
+import qualified Utils.Timer as T
 import Raft.Messages
 import Raft.State
+import Raft.Types
 import Raft.Shared
 
 data Election = Election
@@ -55,6 +56,7 @@ processAppendEntries env x msg = do
 startElectionTimer :: Env -> Process T.Ref
 startElectionTimer env = do
   d <- drawElectionTimeout env
+  say $ "Election timeout: " ++ show d
   pid <- getSelfPid
   T.startTimer d pid Tick
 

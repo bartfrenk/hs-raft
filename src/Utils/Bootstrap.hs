@@ -1,13 +1,14 @@
-module Distributed.Bootstrap where
+module Utils.Bootstrap
+  ( masterless
+  , master
+  ) where
 
 import Control.Distributed.Process
 import Control.Monad
 
-type Peer a = [ProcessId] -> Process a
-
 -- | Starts the process `cont` and passes it the process IDs of all processes
--- registered under `name` on any of the specified nodes. Waits until there are
--- exactly `n` such processes.
+-- registered under `name` on any of the specified nodes. First waits until
+-- there are exactly `n` such registered processes.
 masterless :: Int -> [NodeId] -> String -> ([ProcessId] -> Process a) -> Process a
 masterless n nids name cont = do
   self <- getSelfPid
@@ -30,17 +31,10 @@ masterless n nids name cont = do
 
 -- | Spawns `n` copies of `cont` locally, and passes the process identifiers to
 -- each of these copies.
-master :: Int -> Peer () -> Process ()
+master :: Int -> ([ProcessId] -> Process ()) -> Process ()
 master n cont = do
   pids <- replicateM n $ spawnLocal (expect >>= cont)
   forM_ pids $ flip send pids
   loop
   where
     loop = loop
-
-
-test :: IO Int
-test = pure 5
-
-bla :: IO Int
-bla = test

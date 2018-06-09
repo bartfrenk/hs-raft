@@ -3,9 +3,11 @@ module Raft.Follower where
 import Control.Monad.Catch
 import Control.Distributed.Process hiding (bracket)
 
-import qualified Distributed.Timer as T
+import qualified Utils.Timer as T
+
 import Raft.Messages
 import Raft.State
+import Raft.Types
 import Raft.Shared
 
 -- | Starts the timer that sends a tick when too much time passes between

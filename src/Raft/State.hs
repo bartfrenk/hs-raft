@@ -1,6 +1,7 @@
 module Raft.State
   ( Env
-  , Role(..)
+  , Config(..)
+  , defaultConfig
   , incTerm
   , setRole
   , atomically
@@ -18,13 +19,11 @@ module Raft.State
 import Control.Distributed.Process
 import Control.Monad.Trans (MonadIO, liftIO)
 import Control.Concurrent.STM as STM
+import System.Random
 import Data.Maybe
 
-import Utils
-import Raft.Types (PeerID, PeerAddress)
-
-data Role = Candidate | Follower | Leader
-
+import Utils.Duration
+import Raft.Types (PeerID, PeerAddress, Role(..))
 
 data State = State
   { role :: TVar Role
@@ -33,20 +32,36 @@ data State = State
   , peers :: TVar [PeerAddress]
   }
 
+defaultConfig :: Config
+defaultConfig = Config
+  { electionTimeout = (milliseconds 150, milliseconds 300) }
+
 data Config = Config
-  {
+  { electionTimeout :: (Duration, Duration)
   }
 
 data Env = Env
   { state :: State
   , config :: Config
+  , gen :: TVar StdGen
   }
 
-newEnv :: MonadIO m => m Env
-newEnv = undefined
+newEnv :: MonadIO m => StdGen -> Config -> [PeerAddress] -> m Env
+newEnv gen config peers = do
+  state <- newState peers
+  g <- liftIO $ newTVarIO gen
+  pure $ Env
+    { state = state
+    , config = config
+    , gen = g
+    }
 
-newState :: MonadIO m => m State
-newState = undefined
+newState :: MonadIO m => [PeerAddress] -> m State
+newState peers = liftIO $ State <$>
+  newTVarIO Follower <*>
+  newTVarIO 0 <*>
+  newTVarIO Nothing <*>
+  newTVarIO peers
 
 hasVoted :: MonadIO m => Env -> m Bool
 hasVoted env = liftIO . atomically $
@@ -80,17 +95,29 @@ getTerm env = liftIO $ readTVarIO (term $ state env)
 getSelfID :: Env -> Process PeerID
 getSelfID _ = getSelfPid
 
+getSelfAddress :: Env -> Process PeerAddress
+getSelfAddress _ = getSelfPid
+
 incTerm :: MonadIO m => Env -> m ()
 incTerm env = modifyTerm env (+ 1)
 
 setRole :: MonadIO m => Env -> Role -> m ()
 setRole env =  liftIO . atomically . writeTVar (role $ state env)
 
-getPeers :: MonadIO m => Env -> m [PeerAddress]
-getPeers env = liftIO $ atomically $ readTVar (peers $ state env)
+getPeers :: Env -> Process [PeerAddress]
+getPeers env = do
+  peers <- liftIO $ atomically $ readTVar (peers $ state env)
+  selfAddress <- getSelfAddress env
+  pure $ filter (/= selfAddress) peers
 
 drawElectionTimeout :: MonadIO m => Env -> m Duration
-drawElectionTimeout = undefined
+drawElectionTimeout env =
+  let v = gen env
+  in liftIO $ atomically $ do
+    g <- readTVar v
+    let (a, g') = randomR (electionTimeout $ config env) g
+    writeTVar v g'
+    pure a
 
 -- | The maximal time between successive heartbeat messages from the leader.
 -- The Raft article seems to indicate that this equals the election timeout, see
