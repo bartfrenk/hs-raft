@@ -1,7 +1,7 @@
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 
-module Utils where
+module Utils.Duration where
 
 import           Control.Arrow       (first)
 import           Control.Concurrent
@@ -11,11 +11,21 @@ import           System.Random
 
 newtype Duration =
   Duration Int
-  deriving (Eq, Ord, Show)
+  deriving (Eq, Ord)
+
+instance Monoid Duration where
+  mempty = Duration 0
+  (Duration x) `mappend` (Duration y) = Duration (x + y)
+
+instance Show Duration where
+  show (Duration us) = show us ++ " us"
 
 instance Random Duration where
   randomR (Duration lo, Duration hi) g = first Duration $ randomR (lo, hi) g
   random g = first Duration $ random g
+
+seconds :: Int -> Duration
+seconds = Duration . (* 1000000)
 
 microseconds :: Int -> Duration
 microseconds = Duration
@@ -25,13 +35,3 @@ milliseconds = Duration . (* 1000)
 
 delay :: MonadIO m => Duration -> m ()
 delay (Duration us) = liftIO $ threadDelay us
-
-data RandomVar a =
-  Uniform a
-          a
-
-class MonadRandom a m where
-  sample :: RandomVar a -> m a
-
-instance Random a => (MonadRandom a) IO where
-  sample (Uniform lo hi) = randomRIO (lo, hi)

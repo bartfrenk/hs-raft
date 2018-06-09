@@ -28,6 +28,7 @@ dependencies:
 - distributed-process-p2p
 - binary
 - mtl
+- stm
 - network-transport-tcp
 - network-transport
 - random
@@ -39,6 +40,9 @@ dependencies:
 - containers
 - parsec
 
+default-extensions: DuplicateRecordFields
+
+ghc-options: -Wall -fno-warn-name-shadowing
 
 library:
   source-dirs: src
