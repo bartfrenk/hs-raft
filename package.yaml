@@ -28,13 +28,19 @@ dependencies:
 - distributed-process-p2p
 - binary
 - mtl
+- stm
 - network-transport-tcp
 - network-transport
 - random
 - monad-control
 - transformers-base
 - lens
+- exceptions
+- time
 
+default-extensions: DuplicateRecordFields
+
+ghc-options: -Wall -fno-warn-name-shadowing
 
 library:
   source-dirs: src
