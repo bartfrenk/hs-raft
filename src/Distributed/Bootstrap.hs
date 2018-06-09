@@ -1,9 +1,17 @@
-module Distributed.Bootstrap where
+module Utils.Bootstrap
+  ( masterless
+  , master
+  , client
+  ) where
 
-import           Control.Distributed.Process
-import           Control.Monad
+import Control.Monad.Catch
+import Control.Distributed.Process hiding (bracket)
+import Control.Monad
+import Data.Maybe
 
-type Peer a = [ProcessId] -> Process a
+import qualified Utils.Timer as T
+import Utils.Duration
+
 
 -- | Starts the process `cont` and passes it the process IDs of all processes
 -- registered under `name` on any of the specified nodes. Waits until there are
@@ -37,3 +45,24 @@ master n cont = do
   loop
   where
     loop = loop
+
+client :: [NodeId] -> String -> Duration -> ([ProcessId] -> Process a) -> Process a
+client nids name timeout cont =
+    bracket startTimer T.cancelTimer $ \timer -> do
+      void (forM nids $ flip whereisRemoteAsync name)
+      servers <- loop timer []
+      cont servers
+  where startTimer = do
+          pid <- getSelfPid
+          T.startTimer timeout pid T.Tick
+        loop timer knownPids = do
+          result <- receiveWait
+            [ match $ \(WhereIsReply name' mpid) ->
+                if name == name'
+                then pure $Just $ maybeToList mpid
+                else pure $ Just []
+            , match $ \T.Tick -> pure $ Nothing
+            ]
+          case result of
+            Just pids -> loop timer (knownPids ++ pids)
+            Nothing -> pure knownPids
