@@ -3,11 +3,12 @@ module Raft.Control where
 import Control.Distributed.Process
 import Control.Monad
 import Control.Monad.Trans (MonadIO)
-import Data.Map.Strict (Map)
+import Data.Map.Strict (Map, (!?))
 import qualified Data.Map.Strict as Map
 import System.IO
 
 import Raft.Types
+import qualified Raft.Messages as M
 import Raft.Control.Parser
 
 data Env = Env
@@ -47,7 +48,20 @@ readInput _ = do
     Right cmd -> pure $ Right cmd
 
 processCommand :: Env -> Command -> Process (Either String String)
-processCommand env cmd = pure $ Right "!!"
+processCommand env (Disable idx) = sendToNode env idx M.disable
+processCommand env (Enable idx) = sendToNode env idx M.enable
+processCommand env (Inspect idx) = sendToNode env idx M.inspect
+processCommand _ Quit = pure $ Right ""
+
+sendToNode :: Env -> Int -> M.Control -> Process (Either String String)
+sendToNode env idx msg =
+  case peerMap env !? idx of
+    Nothing -> pure $ Left ("no such node: " ++ show idx)
+    Just pid -> do
+      send pid msg
+      pure $ Right ("sent control command " ++ show msg ++ " to node " ++ show idx)
+
+
 
 start :: [PeerAddress] -> Process ()
 start = run . newControlEnv

@@ -25,11 +25,14 @@ run env = bracket (startHeartbeatTicker env) T.cancelTimer $ loop
             , match $ processTicker env
             , match $ processAppendEntries env ()
             , match $ processAppendEntriesResp env ()
+            , match $ processControl env ()
             ]
           case status of
             InProgress () -> loop timer
             Superseded -> pure Follower
             Timeout -> loop timer -- should not happen
+            Controlled Disable -> pure Disabled
+            Controlled _ -> loop timer
 
 
 processTicker :: Env -> T.Tick -> Process (Status ())

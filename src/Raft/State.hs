@@ -12,6 +12,7 @@ module Raft.State
   , setTerm
   , getTerm
   , getPeers
+  , getRole
   , getSelfID
   , getSelfAddress
   , newEnv
@@ -97,6 +98,9 @@ modifyTerm env f =
 
 getTerm :: MonadIO m => Env -> m Int
 getTerm env = liftIO $ readTVarIO (term $ state env)
+
+getRole :: MonadIO m => Env -> m Role
+getRole env = liftIO $ readTVarIO (role $ state env)
 
 -- | Dependence on @Env@, since we might need to fabricate a custom ID type from
 -- the environment in the future. For now, just use the process ID.

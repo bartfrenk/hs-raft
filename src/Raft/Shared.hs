@@ -12,6 +12,8 @@ data Status a
   = Timeout -- ^ The election has timed out.
   | Superseded -- ^ A message from the future has been received
   | InProgress a -- ^ The election is still in progress
+  | Controlled Command -- ^ A control command has been received
+  deriving (Show)
 
 checkTerm :: Env -- ^ The server's state and configuration
           -> Int -- ^ Term in the received message
@@ -59,3 +61,6 @@ processAppendEntriesResp :: Env -> a -> AppendEntriesResp -> Process (Status a)
 processAppendEntriesResp env x msg =
   let t = term (msg :: AppendEntriesResp)
   in checkTerm env t (pure $ InProgress x) (pure ())
+
+processControl :: Env -> a -> Control -> Process (Status a)
+processControl _ _ (Control cmd) = pure $ Controlled cmd

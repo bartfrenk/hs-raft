@@ -12,7 +12,7 @@ module Raft.Types where
 
 import Control.Distributed.Process
 
-data Role = Candidate | Follower | Leader
+data Role = Candidate | Follower | Leader | Disabled
   deriving (Eq, Show)
 
 type PeerID = ProcessId

@@ -81,6 +81,7 @@ run env = bracket (startElectionTimer env) T.cancelTimer $ \_ -> do
       status <- receiveWait $
         (match $ processAppendEntries env e):
         (match $ processBallot env e):
+        (match $ processControl env e):
         (match $ processTimeout):
          matchPending
 
@@ -91,6 +92,8 @@ run env = bracket (startElectionTimer env) T.cancelTimer $ \_ -> do
           Inconclusive -> awaitVotes e
         Timeout -> pure Candidate
         Superseded -> pure Follower
+        Controlled Disable -> pure Disabled
+        Controlled _ -> awaitVotes e
 
     sendBallots = do
       t <- getTerm env
