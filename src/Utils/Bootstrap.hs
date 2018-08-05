@@ -46,6 +46,8 @@ master n cont = do
   where
     loop = loop
 
+-- | Learns the process IDs of all services registered under `name` on the nodes
+-- identified by the identifiers `nids`, and passes these to `cont`.
 client ::
      [NodeId] -> String -> Duration -> ([ProcessId] -> Process a) -> Process a
 client nids name timeout cont =
