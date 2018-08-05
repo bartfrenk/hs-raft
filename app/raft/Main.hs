@@ -1,53 +1,74 @@
-{-# LANGUAGE LambdaCase      #-}
+{-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE TemplateHaskell #-}
 
 import           Control.Distributed.Process
 import           Control.Distributed.Process.Backend.SimpleLocalnet
-import           Control.Distributed.Process.Node hiding (newLocalNode)
-import           System.Environment
+import           Control.Distributed.Process.Node                   hiding (newLocalNode)
+import           Data.Semigroup                                     ((<>))
+import           Options.Applicative
 import           System.Random
 
-import           Utils.Duration
 import           Utils.Bootstrap
+import           Utils.Duration
+import           Utils.Network                                      (getFreePort)
 
 import           Raft
 
-
-config :: Config
-config = defaultConfig
+raftConfig :: Raft.Config
+raftConfig =
+  defaultConfig
   { electionTimeout = (milliseconds 150, milliseconds 300)
-  , heartbeatInterval = milliseconds 1 }
+  , heartbeatInterval = milliseconds 1
+  }
 
-run :: (RemoteTable -> RemoteTable) -> IO ()
-run frtable = do
-  args <- getArgs
-  let rtable = frtable initRemoteTable
-  case args of
-    ["local", n] -> do
-      backend <- initializeBackend defaultHost defaultPort rtable
-      node <- newLocalNode backend
-      runProcess node $ master (read n) $ \peers -> do
-        g <- liftIO $ mkStdGen <$> randomIO -- different timeouts required at each node
-        start g config peers
-    ["distributed", n, host, port] -> do
-      backend <- initializeBackend host port rtable
-      node <- newLocalNode backend
-      nids <- findPeers backend (seconds 1)
-      g <- newStdGen
-      runProcess node $ masterless (read n) nids "raft" (start g config)
-    _ ->
-      putStrLn
-        "Usage:\n\
-        \  raft local <#nodes>\n\
-        \  raft distributed <#nodes> <host> <port>"
+data Settings = Settings
+  { nodeCount  :: !Int
+  , host       :: !String
+  , port       :: !Integer
+  , isLocalRun :: !Bool
+  }
+
+parseCommandLine :: IO Settings
+parseCommandLine = do
+  defaultPort <- getFreePort
+  execParser $ info (helper <*> parser defaultPort) desc
   where
-    seconds = (* 1000000)
+    desc = fullDesc
+    parser defaultPort =
+      Settings <$>
+      option auto (short 'n' <> help "Total number of raft instances") <*>
+      strOption (long "host" <> short 'h' <> value "localhost") <*>
+      option auto (long "port" <> short 'p' <> value defaultPort) <*>
+      switch (long "local" <> help "Run all Raft instances in the same process")
 
-defaultHost :: String
-defaultHost = "localhost"
+-- | Run a single Raft instance on a freshly created local node.
+runDistributed :: Settings -> IO ()
+runDistributed Settings {..} = do
+  backend <- initializeBackend host (show port) initRemoteTable
+  node <- newLocalNode backend
+  nids <- liftIO $ findPeers backend 1000000
+  g <- liftIO $ newStdGen
+  runProcess node (process nids g)
+  where
+    process nids g = do
+      masterless nodeCount nids "raft" (start g raftConfig)
 
-defaultPort :: String
-defaultPort = "44444"
+runLocal :: Settings -> IO ()
+runLocal Settings {..} = do
+  backend <- initializeBackend host (show port) initRemoteTable
+  node <- newLocalNode backend
+  runProcess node process
+  where
+    process =
+      master nodeCount $ \peers -> do
+        g <- liftIO $ mkStdGen <$> randomIO -- different timeouts required at each node
+        start g raftConfig peers
+
+-- | Start one, or more Raft instances, depending on the settings.
+run :: Settings -> IO ()
+run settings = do
+  if | isLocalRun settings -> runLocal settings
+     | otherwise -> runDistributed settings
 
 main :: IO ()
-main = run id
+main = parseCommandLine >>= run

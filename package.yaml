@@ -8,17 +8,13 @@ copyright: "2018 Bart Frenk"
 
 extra-source-files:
 - README.md
-- ChangeLog.md
 
 # Metadata used when publishing your package
-# synopsis: Short description of your package
-# category: Web
+synopsis: Raft implementation
+category: Distributed
 
-# To avoid duplicated efforts in documentation and dealing with the
-# complications of embedding Haddock markup inside cabal files, it is
-# common to point users to the README.md file.
 description: >-
-  Please see the README on GitHub at <https://github.com/githubuser/hs-raft#readme>
+  Please see the README on GitHub at <https://github.com/bartfrenk/hs-raft>
 
 dependencies:
 - base >= 4.7 && < 5
@@ -31,6 +27,7 @@ dependencies:
 - stm
 - network-transport-tcp
 - network-transport
+- network
 - random
 - monad-control
 - transformers-base
@@ -39,8 +36,15 @@ dependencies:
 - time
 - containers
 - parsec
+- haskeline
+- optparse-applicative
 
-default-extensions: DuplicateRecordFields
+default-extensions:
+  - DuplicateRecordFields
+  - NamedFieldPuns
+  - LambdaCase
+  - MultiWayIf
+  - OverloadedStrings
 
 ghc-options: -Wall -fno-warn-name-shadowing
 

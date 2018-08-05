@@ -61,7 +61,5 @@ sendToNode env idx msg =
       send pid msg
       pure $ Right ("sent control command " ++ show msg ++ " to node " ++ show idx)
 
-
-
 start :: [PeerAddress] -> Process ()
 start = run . newControlEnv

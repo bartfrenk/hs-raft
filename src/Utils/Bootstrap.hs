@@ -4,18 +4,19 @@ module Utils.Bootstrap
   , client
   ) where
 
-import Control.Monad.Catch
-import Control.Distributed.Process hiding (bracket)
-import Control.Monad
-import Data.Maybe
+import           Control.Distributed.Process hiding (bracket)
+import           Control.Monad
+import           Control.Monad.Catch
+import           Data.Maybe
 
-import qualified Utils.Timer as T
-import Utils.Duration
+import           Utils.Duration
+import qualified Utils.Timer                 as T
 
 -- | Starts the process `cont` and passes it the process IDs of all processes
 -- registered under `name` on any of the specified nodes. First waits until
 -- there are exactly `n` such registered processes.
-masterless :: Int -> [NodeId] -> String -> ([ProcessId] -> Process a) -> Process a
+masterless ::
+     Int -> [NodeId] -> String -> ([ProcessId] -> Process a) -> Process a
 masterless n nids name cont = do
   self <- getSelfPid
   register name self
@@ -45,23 +46,26 @@ master n cont = do
   where
     loop = loop
 
-client :: [NodeId] -> String -> Duration -> ([ProcessId] -> Process a) -> Process a
+client ::
+     [NodeId] -> String -> Duration -> ([ProcessId] -> Process a) -> Process a
 client nids name timeout cont =
-    bracket startTimer T.cancelTimer $ \timer -> do
-      void (forM nids $ flip whereisRemoteAsync name)
-      servers <- loop timer []
-      cont servers
-  where startTimer = do
-          pid <- getSelfPid
-          T.startTimer timeout pid T.Tick
-        loop timer knownPids = do
-          result <- receiveWait
-            [ match $ \(WhereIsReply name' mpid) ->
-                if name == name'
-                then pure $Just $ maybeToList mpid
+  bracket startTimer T.cancelTimer $ \timer -> do
+    void (forM nids $ flip whereisRemoteAsync name)
+    servers <- loop timer []
+    cont servers
+  where
+    startTimer = do
+      pid <- getSelfPid
+      T.startTimer timeout pid T.Tick
+    loop timer knownPids = do
+      result <-
+        receiveWait
+          [ match $ \(WhereIsReply name' mpid) ->
+              if name == name'
+                then pure $ Just $ maybeToList mpid
                 else pure $ Just []
-            , match $ \T.Tick -> pure $ Nothing
-            ]
-          case result of
-            Just pids -> loop timer (knownPids ++ pids)
-            Nothing -> pure knownPids
+          , match $ \T.Tick -> pure $ Nothing
+          ]
+      case result of
+        Just pids -> loop timer (knownPids ++ pids)
+        Nothing -> pure knownPids
