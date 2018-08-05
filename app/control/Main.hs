@@ -27,10 +27,10 @@ parseCommandLine = do
 
 run :: Settings -> IO ()
 run Settings {..} = do
-  backend <- initializeBackend "localhost" "44444" initRemoteTable
+  backend <- initializeBackend host (show port) initRemoteTable
   node <- newLocalNode backend
   nids <- findPeers backend 1000000
-  runProcess node $ client nids "raft" (milliseconds 100) $ Control.start
+  runProcess node $ client nids "raft" (milliseconds 1000) $ Control.start
 
 main :: IO ()
 main = do

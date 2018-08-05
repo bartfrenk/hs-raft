@@ -60,7 +60,7 @@ runLocal Settings {..} = do
   runProcess node process
   where
     process =
-      master nodeCount $ \peers -> do
+      master nodeCount "raft" $ \peers -> do
         g <- liftIO $ mkStdGen <$> randomIO -- different timeouts required at each node
         start g raftConfig peers
 

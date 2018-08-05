@@ -1,20 +1,43 @@
+{-# LANGUAGE RecordWildCards #-}
+
 module Raft.Control where
 
-import Control.Distributed.Process
-import Control.Monad
-import Control.Monad.Trans (MonadIO)
-import Data.Map.Strict (Map, (!?))
-import qualified Data.Map.Strict as Map
-import System.IO
+import           Control.Distributed.Process
+import           Control.Monad
+import           Control.Monad.Trans         (MonadIO, lift)
+import           Data.Map.Strict             (Map, (!?))
+import qualified Data.Map.Strict             as Map
+import           System.Console.Haskeline
+import           System.IO
 
-import Raft.Types
-import qualified Raft.Messages as M
-import Raft.Control.Parser
+import           Orphans                     ()
+import           Raft.Control.Parser
+import qualified Raft.Messages               as M
+import           Raft.Types
 
 data Env = Env
   { peerMap :: Map Int PeerAddress
-  , prompt :: String
+  , prompt  :: String
   }
+
+run' :: Env -> Process ()
+run' env = do
+  liftIO $ putStrLn $ "Client connected to peers: " ++ show (peerMap env)
+  runInputT defaultSettings $ loop env
+  where
+    loop :: Env -> InputT Process ()
+    loop env@Env {..} = do
+      getInputLine prompt >>= \case
+        Nothing -> return () >> loop env
+        Just "\\q" -> return ()
+        Just input -> do
+          case parse input of
+            Left _ -> outputStrLn $ "unknown command: " ++ input
+            Right cmd -> do
+              lift $ processCommand env cmd >>= \case
+                Left err -> liftIO $ putStrLn $ "error: " ++ err
+                Right success -> liftIO $ putStrLn success
+          loop env
 
 newControlEnv :: [PeerAddress] -> Env
 newControlEnv peers =
@@ -22,7 +45,6 @@ newControlEnv peers =
 
 run :: Env -> Process ()
 run env = do
-  liftIO $ putStrLn $ "Client connected to peers: " ++ show (peerMap env)
   repl env
   where
     repl env = do
@@ -37,7 +59,8 @@ run env = do
               Right success -> liftIO $ putStrLn success
             repl env
         Left (err, input) -> do
-          liftIO $ putStrLn $ "Failed to parse: " ++ input ++ " (" ++ show err ++ ")"
+          liftIO $
+            putStrLn $ "Failed to parse: " ++ input ++ " (" ++ show err ++ ")"
           repl env
 
 readInput :: MonadIO m => Env -> m (Either (ParseError, String) Command)
@@ -59,7 +82,8 @@ sendToNode env idx msg =
     Nothing -> pure $ Left ("no such node: " ++ show idx)
     Just pid -> do
       send pid msg
-      pure $ Right ("sent control command " ++ show msg ++ " to node " ++ show idx)
+      pure $
+        Right ("sent control command " ++ show msg ++ " to node " ++ show idx)
 
 start :: [PeerAddress] -> Process ()
-start = run . newControlEnv
+start = run' . newControlEnv

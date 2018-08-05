@@ -1,3 +1,5 @@
+{-# LANGUAGE DeriveGeneric #-}
+
 module Utils.Bootstrap
   ( masterless
   , master
@@ -7,7 +9,10 @@ module Utils.Bootstrap
 import           Control.Distributed.Process hiding (bracket)
 import           Control.Monad
 import           Control.Monad.Catch
+import           Data.Binary
 import           Data.Maybe
+import           Data.Typeable
+import           GHC.Generics
 
 import           Utils.Duration
 import qualified Utils.Timer                 as T
@@ -36,15 +41,31 @@ masterless n nids name cont = do
                 loop self (pid : knownPids)
           Nothing -> loop self knownPids
 
+data GetSlaves =
+  GetSlaves ProcessId
+  deriving (Generic, Typeable)
+
+instance Binary GetSlaves
+
+data GetSlavesReply =
+  GetSlavesReply [ProcessId]
+  deriving (Generic, Typeable)
+
+instance Binary GetSlavesReply
+
 -- | Spawns `n` copies of `cont` locally, and passes the process identifiers to
 -- each of these copies.
-master :: Int -> ([ProcessId] -> Process ()) -> Process ()
-master n cont = do
+master :: Int -> String -> ([ProcessId] -> Process ()) -> Process ()
+master n name cont = do
   pids <- replicateM n $ spawnLocal (expect >>= cont)
+  getSelfPid >>= register name
   forM_ pids $ flip send pids
-  loop
+  loop pids
   where
-    loop = loop
+    loop pids = do
+      GetSlaves sender <- expect
+      send sender $ GetSlavesReply pids
+      loop pids
 
 -- | Learns the process IDs of all services registered under `name` on the nodes
 -- identified by the identifiers `nids`, and passes these to `cont`.
@@ -53,8 +74,8 @@ client ::
 client nids name timeout cont =
   bracket startTimer T.cancelTimer $ \timer -> do
     void (forM nids $ flip whereisRemoteAsync name)
-    servers <- loop timer []
-    cont servers
+    pids <- loop timer []
+    cont pids
   where
     startTimer = do
       pid <- getSelfPid
@@ -62,7 +83,7 @@ client nids name timeout cont =
     loop timer knownPids = do
       result <-
         receiveWait
-          [ match $ \(WhereIsReply name' mpid) ->
+          [ match $ \(WhereIsReply name' mpid) -> do
               if name == name'
                 then pure $ Just $ maybeToList mpid
                 else pure $ Just []
@@ -70,4 +91,10 @@ client nids name timeout cont =
           ]
       case result of
         Just pids -> loop timer (knownPids ++ pids)
-        Nothing -> pure knownPids
+        Nothing ->
+          if | length knownPids == 1 ->
+               let [masterPid] = knownPids
+               in do (send masterPid . GetSlaves) =<< getSelfPid
+                     GetSlavesReply pids <- expect
+                     pure pids
+             | otherwise -> pure knownPids
