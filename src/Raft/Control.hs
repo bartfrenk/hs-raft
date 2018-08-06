@@ -1,74 +1,66 @@
 {-# LANGUAGE RecordWildCards #-}
 
-module Raft.Control where
+module Raft.Control
+  ( start
+  ) where
 
 import           Control.Distributed.Process
-import           Control.Monad
-import           Control.Monad.Trans         (MonadIO, lift)
+import           Control.Monad.Trans         (lift)
 import           Data.Map.Strict             (Map, (!?))
 import qualified Data.Map.Strict             as Map
 import           System.Console.Haskeline
-import           System.IO
 
 import           Orphans                     ()
 import           Raft.Control.Parser
 import qualified Raft.Messages               as M
-import           Raft.Types
 
 data Env = Env
-  { peerMap :: Map Int PeerAddress
-  , prompt  :: String
+  { peerMap :: Map Int ProcessId
+  , basePrompt  :: String
   }
+
+completions :: [String]
+completions = ["\\disable", "\\enable", "\\inspect", "\\quit"]
+
+isPrefixOf :: Eq a => [a] -> [a] -> Bool
+isPrefixOf [] _ = True
+isPrefixOf _ [] = False
+isPrefixOf (p:ps) (w:ws)
+  | p == w = isPrefixOf ps ws
+  | otherwise = False
+
+fromCompletions :: Monad m => [String] -> CompletionFunc m
+fromCompletions cs = completeWord Nothing " \t" (pure . fn)
+  where
+    fn s = simpleCompletion <$> (isPrefixOf s `filter` cs)
+
+makePrompt :: Env -> String
+makePrompt Env{..} = concat ["(", show $ length peerMap, ") ", basePrompt]
 
 run' :: Env -> Process ()
 run' env = do
-  liftIO $ putStrLn $ "Client connected to peers: " ++ show (peerMap env)
-  runInputT defaultSettings $ loop env
+  let settings = setComplete (fromCompletions completions) defaultSettings
+  runInputT settings $ loop env
   where
     loop :: Env -> InputT Process ()
     loop env@Env {..} = do
-      getInputLine prompt >>= \case
+      getInputLine (makePrompt env) >>= \case
         Nothing -> return () >> loop env
-        Just "\\q" -> return ()
         Just input -> do
           case parse input of
-            Left _ -> outputStrLn $ "unknown command: " ++ input
-            Right cmd -> do
-              lift $ processCommand env cmd >>= \case
-                Left err -> liftIO $ putStrLn $ "error: " ++ err
-                Right success -> liftIO $ putStrLn success
-          loop env
+            Left _ -> outputStrLn ("unknown command: " ++ input) >> loop env
+            Right Nothing -> loop env
+            Right (Just Quit) -> return ()
+            Right (Just cmd) -> do
+              lift $
+                processCommand env cmd >>= \case
+                  Left err -> liftIO $ putStrLn $ "error: " ++ err
+                  Right success -> liftIO $ putStrLn success
+              loop env
 
-newControlEnv :: [PeerAddress] -> Env
+newControlEnv :: [ProcessId] -> Env
 newControlEnv peers =
-  Env {peerMap = Map.fromList $ zip [0 ..] peers, prompt = ">> "}
-
-run :: Env -> Process ()
-run env = do
-  repl env
-  where
-    repl env = do
-      liftIO $ (putStr "> " >> hFlush stdout)
-      mCmd <- readInput env
-      case mCmd of
-        Right cmd -> do
-          unless (cmd == Quit) $ do
-            result <- processCommand env cmd
-            case result of
-              Left err -> liftIO $ putStrLn $ "error: " ++ err
-              Right success -> liftIO $ putStrLn success
-            repl env
-        Left (err, input) -> do
-          liftIO $
-            putStrLn $ "Failed to parse: " ++ input ++ " (" ++ show err ++ ")"
-          repl env
-
-readInput :: MonadIO m => Env -> m (Either (ParseError, String) Command)
-readInput _ = do
-  s <- liftIO $ getLine
-  case parse s of
-    Left err -> pure $ Left (err, s)
-    Right cmd -> pure $ Right cmd
+  Env {peerMap = Map.fromList $ zip [0 ..] peers, basePrompt = ">> "}
 
 processCommand :: Env -> Command -> Process (Either String String)
 processCommand env (Disable idx) = sendToNode env idx M.disable
@@ -85,5 +77,5 @@ sendToNode env idx msg =
       pure $
         Right ("sent control command " ++ show msg ++ " to node " ++ show idx)
 
-start :: [PeerAddress] -> Process ()
+start :: [ProcessId] -> Process ()
 start = run' . newControlEnv
