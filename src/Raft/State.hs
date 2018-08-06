@@ -7,6 +7,7 @@ module Raft.State
   , atomically
   , voteFor
   , hasVoted
+  , hasVotedFor
   , drawElectionTimeout
   , drawLeaderHeartbeatTimeout
   , setTerm
@@ -75,6 +76,10 @@ newState peers = liftIO $ State <$>
 hasVoted :: MonadIO m => Env -> m Bool
 hasVoted env = liftIO . atomically $
   isJust <$> readTVar (votedFor $ state env)
+
+hasVotedFor :: MonadIO m => Env -> m (Maybe ProcessId)
+hasVotedFor env = liftIO . atomically $
+  readTVar (votedFor $ state env)
 
 voteFor :: MonadIO m => Env -> PeerID -> m ()
 voteFor env peer = liftIO . atomically $

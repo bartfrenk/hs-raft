@@ -17,7 +17,7 @@ type CharStream s = Stream s Identity Char
 data Command
   = Disable Int
   | Enable Int
-  | Inspect Int
+  | Inspect (Maybe Int)
   | Quit
   deriving (Eq, Show)
 
@@ -40,7 +40,7 @@ enable :: CharStream s => Parser s Command
 enable = Enable <$> (control "enable" *> integer)
 
 inspect :: CharStream s => Parser s Command
-inspect = Inspect <$> (control "inspect" *> integer)
+inspect = Inspect <$> (control "inspect" *> optionMaybe integer)
 
 quit :: CharStream s => Parser s Command
 quit = control "quit" >> (pure Quit)

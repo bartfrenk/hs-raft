@@ -1,3 +1,4 @@
+{-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 module Raft.Shared where
 
@@ -64,3 +65,17 @@ processAppendEntriesResp env x msg =
 
 processControl :: Env -> a -> Control -> Process (Status a)
 processControl _ _ (Control cmd) = pure $ Controlled cmd
+
+
+processInspectRequest :: Env -> a -> InspectRequest -> Process (Status a)
+processInspectRequest env x msg = do
+  role <- getRole env
+  term <- getTerm env
+  votedFor <- hasVotedFor env
+  let reply = InspectReply
+        { role = role
+        , term = term
+        , votedFor = votedFor
+        }
+  sendChan (sendPort (msg :: InspectRequest)) reply
+  pure $ InProgress x

@@ -45,6 +45,7 @@ default-extensions:
   - LambdaCase
   - MultiWayIf
   - OverloadedStrings
+  - MonoLocalBinds
 
 ghc-options: -Wall -fno-warn-name-shadowing
 

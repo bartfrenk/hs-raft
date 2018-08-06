@@ -83,6 +83,7 @@ run env = bracket (startElectionTimer env) T.cancelTimer $ \_ -> do
         (match $ processBallot env e):
         (match $ processControl env e):
         (match $ processTimeout):
+        (match $ processInspectRequest env e):
          matchPending
 
       case status of

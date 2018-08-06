@@ -3,7 +3,7 @@
 
 module Raft.Messages where
 
-import           Control.Distributed.Process (SendPort)
+import           Control.Distributed.Process (SendPort, ProcessId)
 import           Data.Binary
 import           Data.Typeable
 import           GHC.Generics
@@ -41,7 +41,7 @@ instance Binary Ballot
 
 
 data Command =
-  Disable | Enable | Inspect
+  Disable | Enable
   deriving (Generic, Show, Typeable)
 
 instance Binary Command
@@ -52,11 +52,22 @@ data Control = Control
 
 instance Binary Control
 
+data InspectRequest = InspectRequest
+  { sendPort :: SendPort InspectReply
+  } deriving (Generic, Show, Typeable)
+
+instance Binary InspectRequest
+
+data InspectReply = InspectReply
+  { role :: Role
+  , term :: Int
+  , votedFor :: Maybe ProcessId
+  } deriving (Generic, Show, Typeable)
+
+instance Binary InspectReply
+
 disable :: Control
 disable = Control Disable
 
 enable :: Control
 enable = Control Enable
-
-inspect :: Control
-inspect = Control Inspect
