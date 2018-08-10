@@ -1,4 +1,5 @@
-{-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE RecordWildCards     #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 module Raft.Control
   ( start
@@ -7,15 +8,17 @@ module Raft.Control
 import           Control.Distributed.Process
 import           Control.Distributed.Process.Serializable
 import           Control.Monad.Trans                      (lift)
-import           Data.Either                              (rights)
-import           Data.List                                (intercalate)
+--import           Data.List                                (intercalate)
 import           Data.Map.Strict                          (Map, (!?))
 import qualified Data.Map.Strict                          as Map
 import           System.Console.Haskeline
+import Control.Monad.Except
 
 import           Orphans                                  ()
 import           Raft.Control.Parser
 import qualified Raft.Messages                            as M
+
+
 
 data Env = Env
   { peerMap    :: Map Int ProcessId
@@ -40,70 +43,92 @@ fromCompletions cs = completeWord Nothing " \t" (pure . fn)
 makePrompt :: Env -> String
 makePrompt Env {..} = concat ["(", show $ length peerMap, ") ", basePrompt]
 
-run' :: Env -> Process ()
-run' env = do
+runRepl :: Env -> Process ()
+runRepl env = do
   let settings = setComplete (fromCompletions completions) defaultSettings
   runInputT settings $ loop env
   where
     loop :: Env -> InputT Process ()
     loop env@Env {..} = do
       getInputLine (makePrompt env) >>= \case
-        Nothing -> return () >> loop env
+        Nothing -> pure () >> loop env
         Just input -> do
           case parse input of
             Left _ -> outputStrLn ("unknown command: " ++ input) >> loop env
             Right Nothing -> loop env
             Right (Just Quit) -> return ()
             Right (Just cmd) -> do
-              lift $
-                processCommand env cmd >>= \case
-                  Left err -> liftIO $ putStrLn $ "error: " ++ err
-                  Right success -> liftIO $ putStrLn success
+              lift $ processCommand env cmd
               loop env
 
 newControlEnv :: [ProcessId] -> Env
 newControlEnv peers =
   Env {peerMap = Map.fromList $ zip [0 ..] peers, basePrompt = ">> "}
 
-processCommand :: Env -> Command -> Process (Either String String)
-processCommand env (Disable idx) = sendToNode env idx M.disable
-processCommand env (Enable idx) = sendToNode env idx M.enable
-processCommand env (Inspect (Just idx)) = do
-  (sendPort, receivePort) <- newChan
-  sendToNode env idx (M.InspectRequest sendPort) >>= \case
-    Left err -> pure $ Left err
-    Right _ -> do
-      reply <- receiveChanTimeout 1000000 receivePort
-      pure $ Right $ (show idx) ++ ": " ++ (show reply)
--- TODO: This sequences waiting for the @InspectReply@ messages. Could be more efficient.
--- Does not scale to many nodes, or slow networks.
-processCommand env (Inspect Nothing) = do
-  let cmds = Inspect . Just <$> (Map.keys $ peerMap env)
-  results <- processCommand env `mapM` cmds
-  pure $ Right $ intercalate "\n" (rights results)
-processCommand _ Quit = pure $ Right ""
+printResult :: (Show a, Show b, MonadIO m) => ExceptT a m b -> m ()
+printResult act = runExceptT act >>= \case
+  Left err -> liftIO $ putStrLn $ "error" ++ show err
+  Right success -> liftIO $ putStrLn $ show success
 
-sendToNode ::
-     (Show a, Serializable a)
-  => Env
+processCommand :: Env -> Command -> Process ()
+processCommand env (Disable idx) = printResult $ do
+  pid <- lookupNode env idx
+  lift $ send pid M.disable
+processCommand env (Enable idx) = printResult $ do
+  pid <- lookupNode env idx
+  lift $ send pid M.disable
+processCommand env (Inspect (Just idx)) = printResult $ do
+  pid <- lookupNode env idx
+  broadcastTimeout (Map.singleton idx pid) 100000 M.InspectRequest
+processCommand Env{peerMap} (Inspect Nothing) = printResult $
+  broadcastTimeout peerMap 1000000 M.InspectRequest
+processCommand _ Quit = error "Can not process Quit command"
+
+for :: [a] -> (a -> b) -> [b]
+for = flip fmap
+
+remove :: (a -> Bool) -> [a] -> [a]
+remove pred = filter (not . pred)
+
+lookupNode :: Monad m => Env -> Int -> ExceptT String m ProcessId
+lookupNode Env{peerMap} idx =
+  case peerMap !? idx of
+    Nothing -> throwError ("No such node: " ++ show idx)
+    Just pid -> pure $ pid
+
+broadcastTimeout ::
+     (Ord a, Serializable b, Serializable c)
+  => Map a ProcessId
   -> Int
-  -> a
-  -> Process (Either String String)
-sendToNode env idx msg =
-  case peerMap env !? idx of
-    Nothing -> pure $ Left ("no such node: " ++ show idx)
-    Just pid -> do
-      send pid msg
-      pure $
-        Right ("sent control command " ++ show msg ++ " to node " ++ show idx)
+  -> (SendPort b -> c)
+  -> ExceptT String Process (Map a b)
+broadcastTimeout pids timeout newMsg = do
+  receivePorts <- lift $ traverse (sendWithPort newMsg) pids
+  responses <- lift $ receiveTaggedChans timeout (Map.toList receivePorts)
+  pure $ Map.fromList responses
 
--- sendControlToNode :: Env -> Int -> M.Control -> Process (Either String String)
--- sendToNode env idx msg =
---   case peerMap env !? idx of
---     Nothing -> pure $ Left ("no such node: " ++ show idx)
---     Just pid -> do
---       send pid msg
---       pure $
---         Right ("sent control command " ++ show msg ++ " to node " ++ show idx)
+receiveTaggedChans :: Eq a => Int -> [(a, ReceivePort b)] -> Process [(a, b)]
+receiveTaggedChans timeout = loop []
+  where
+    loop acc [] = pure acc
+    loop acc chans = do
+      let matches = for chans $ \(idx, port) ->
+            (matchChan port $ \resp -> pure (idx, resp))
+      receiveTimeout timeout matches >>= \case
+        Just (idx, received) ->
+          let remaining = remove (\t -> fst t == idx) chans
+          in loop ((idx, received):acc) remaining
+        Nothing -> pure acc
+
+sendWithPort ::
+     (Serializable a, Serializable b)
+  => (SendPort a -> b)
+  -> ProcessId
+  -> Process (ReceivePort a)
+sendWithPort newMsg pid = do
+  (sendPort, receivePort) <- newChan
+  send pid (newMsg sendPort)
+  pure receivePort
+
 start :: [ProcessId] -> Process ()
-start = run' . newControlEnv
+start = runRepl . newControlEnv
