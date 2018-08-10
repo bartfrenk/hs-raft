@@ -38,6 +38,7 @@ dependencies:
 - parsec
 - haskeline
 - optparse-applicative
+- prettyprinter
 
 default-extensions:
   - DuplicateRecordFields

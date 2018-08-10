@@ -93,7 +93,7 @@ run env = bracket (startElectionTimer env) T.cancelTimer $ \_ -> do
           Inconclusive -> awaitVotes e
         Timeout -> pure Candidate
         Superseded -> pure Follower
-        Controlled Disable -> pure Disabled
+        Controlled (SetRole role) -> pure role
         Controlled _ -> awaitVotes e
 
     sendBallots = do

@@ -1,4 +1,4 @@
-{-# LANGUAGE ConstraintKinds #-}
+{-# LANGUAGE ConstraintKinds  #-}
 {-# LANGUAGE FlexibleContexts #-}
 
 module Raft.Control.Parser
@@ -6,9 +6,11 @@ module Raft.Control.Parser
   , ParseError
   ) where
 
-import Control.Monad
-import Data.Functor.Identity
-import Text.Parsec
+import           Control.Monad
+import           Data.Functor.Identity
+import           Text.Parsec
+
+import           Raft.Types            (Role (..))
 
 type Parser s = Parsec s ()
 
@@ -17,6 +19,8 @@ type CharStream s = Stream s Identity Char
 data Command
   = Disable Int
   | Enable Int
+  | SetRole Role
+            Int
   | Inspect (Maybe Int)
   | Quit
   deriving (Eq, Show)
@@ -45,9 +49,18 @@ inspect = Inspect <$> (control "inspect" *> optionMaybe integer)
 quit :: CharStream s => Parser s Command
 quit = control "quit" >> (pure Quit)
 
+setRole :: CharStream s => Parser s Command
+setRole = control "setRole" *> (SetRole <$> role <*> integer)
+  where
+    role = candidate <|> follower <|> leader <?> "role"
+    leader = lexeme (string "leader") *> pure Leader
+    follower = lexeme (string "follower") *> pure Follower
+    candidate = lexeme (string "candidate") *> pure Candidate
+
 command :: CharStream s => Parser s (Maybe Command)
-command = Just <$> (try disable <|> try enable <|> try inspect <|> quit) <|>
-          whitespace *> pure Nothing
+command =
+  Just <$> (try disable <|> try enable <|> try inspect <|> setRole <|> quit) <|>
+  whitespace *> pure Nothing
 
 parse :: String -> Either ParseError (Maybe Command)
 parse s = runParser command () "" s

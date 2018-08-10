@@ -32,7 +32,7 @@ run env = bracket (startHeartbeatTicker env) T.cancelTimer $ loop
             InProgress () -> loop timer
             Superseded -> pure Follower
             Timeout -> loop timer -- should not happen
-            Controlled Disable -> pure Disabled
+            Controlled (SetRole role) -> pure role
             Controlled _ -> loop timer
 
 

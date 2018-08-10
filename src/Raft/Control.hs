@@ -1,5 +1,6 @@
-{-# LANGUAGE RecordWildCards     #-}
-{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE RecordWildCards            #-}
+{-# LANGUAGE ScopedTypeVariables        #-}
 
 module Raft.Control
   ( start
@@ -8,25 +9,46 @@ module Raft.Control
 import           Control.Distributed.Process
 import           Control.Distributed.Process.Serializable
 import           Control.Monad.Trans                      (lift)
+
+import           Control.Monad.Except
+
 --import           Data.List                                (intercalate)
 import           Data.Map.Strict                          (Map, (!?))
 import qualified Data.Map.Strict                          as Map
+import           Data.Text.Prettyprint.Doc
+import           Data.Text.Prettyprint.Doc.Render.Text    (putDoc)
 import           System.Console.Haskeline
-import Control.Monad.Except
 
 import           Orphans                                  ()
 import           Raft.Control.Parser
 import qualified Raft.Messages                            as M
 
+type PeerIndex = Int
 
+newtype PeerMap a = PeerMap
+  { unPeerMap :: Map PeerIndex a
+  } deriving (Foldable, Show)
+
+instance Pretty a => Pretty (PeerMap a) where
+  pretty (PeerMap mp) =
+    vcat $ for (Map.toList mp) $ \(idx, a) -> viaShow idx <+> pretty a
 
 data Env = Env
-  { peerMap    :: Map Int ProcessId
+  { peerMap    :: PeerMap ProcessId
   , basePrompt :: String
   }
 
 completions :: [String]
-completions = ["\\disable", "\\enable", "\\inspect", "\\quit"]
+completions =
+  [ "\\disable"
+  , "\\enable"
+  , "\\inspect"
+  , "\\quit"
+  , "\\setRole"
+  , "leader"
+  , "follower"
+  , "candidate"
+  ]
 
 isPrefixOf :: Eq a => [a] -> [a] -> Bool
 isPrefixOf [] _ = True
@@ -54,7 +76,9 @@ runRepl env = do
         Nothing -> pure () >> loop env
         Just input -> do
           case parse input of
-            Left _ -> outputStrLn ("unknown command: " ++ input) >> loop env
+            Left err -> do
+              outputStrLn ("unknown command: " ++ input ++ "(" ++ show err ++ ")")
+              loop env
             Right Nothing -> loop env
             Right (Just Quit) -> return ()
             Right (Just cmd) -> do
@@ -63,25 +87,37 @@ runRepl env = do
 
 newControlEnv :: [ProcessId] -> Env
 newControlEnv peers =
-  Env {peerMap = Map.fromList $ zip [0 ..] peers, basePrompt = ">> "}
+  Env {peerMap = PeerMap $ Map.fromList $ zip [0 ..] peers, basePrompt = ">> "}
 
-printResult :: (Show a, Show b, MonadIO m) => ExceptT a m b -> m ()
-printResult act = runExceptT act >>= \case
-  Left err -> liftIO $ putStrLn $ "error" ++ show err
-  Right success -> liftIO $ putStrLn $ show success
+printPretty :: (Show a, Pretty b, MonadIO m) => ExceptT a m b -> m ()
+printPretty act =
+  runExceptT act >>= \case
+    Left err -> liftIO $ putStrLn $ "error" ++ show err
+    Right success -> liftIO $ putDoc $ indent 2 (pretty success) <> line
 
 processCommand :: Env -> Command -> Process ()
-processCommand env (Disable idx) = printResult $ do
+processCommand env (Disable idx) =
+  printPretty $ do
+    pid <- lookupNode env idx
+    lift $ send pid M.disable
+    pure $ "Disabled node " ++ show idx
+processCommand env (Enable idx) =
+  printPretty $ do
+    pid <- lookupNode env idx
+    lift $ send pid M.enable
+    pure $ "Enabled node " ++ show idx
+processCommand env (Inspect (Just idx)) =
+  printPretty $
+  PeerMap <$> do
+    pid <- lookupNode env idx
+    broadcastTimeout (Map.singleton idx pid) 100000 M.InspectRequest
+processCommand Env {peerMap} (Inspect Nothing) =
+  printPretty $
+  PeerMap <$> broadcastTimeout (unPeerMap peerMap) 1000000 M.InspectRequest
+processCommand env (SetRole role idx) = printPretty $ do
   pid <- lookupNode env idx
-  lift $ send pid M.disable
-processCommand env (Enable idx) = printResult $ do
-  pid <- lookupNode env idx
-  lift $ send pid M.disable
-processCommand env (Inspect (Just idx)) = printResult $ do
-  pid <- lookupNode env idx
-  broadcastTimeout (Map.singleton idx pid) 100000 M.InspectRequest
-processCommand Env{peerMap} (Inspect Nothing) = printResult $
-  broadcastTimeout peerMap 1000000 M.InspectRequest
+  lift $ send pid (M.setRole role)
+  pure $ "Set role of " ++ show idx ++ " to " ++ show role
 processCommand _ Quit = error "Can not process Quit command"
 
 for :: [a] -> (a -> b) -> [b]
@@ -91,8 +127,8 @@ remove :: (a -> Bool) -> [a] -> [a]
 remove pred = filter (not . pred)
 
 lookupNode :: Monad m => Env -> Int -> ExceptT String m ProcessId
-lookupNode Env{peerMap} idx =
-  case peerMap !? idx of
+lookupNode Env {peerMap} idx =
+  case unPeerMap peerMap !? idx of
     Nothing -> throwError ("No such node: " ++ show idx)
     Just pid -> pure $ pid
 
@@ -112,12 +148,13 @@ receiveTaggedChans timeout = loop []
   where
     loop acc [] = pure acc
     loop acc chans = do
-      let matches = for chans $ \(idx, port) ->
-            (matchChan port $ \resp -> pure (idx, resp))
+      let matches =
+            for chans $ \(idx, port) ->
+              (matchChan port $ \resp -> pure (idx, resp))
       receiveTimeout timeout matches >>= \case
         Just (idx, received) ->
           let remaining = remove (\t -> fst t == idx) chans
-          in loop ((idx, received):acc) remaining
+          in loop ((idx, received) : acc) remaining
         Nothing -> pure acc
 
 sendWithPort ::

@@ -34,7 +34,7 @@ run env role = do
     Follower -> setRole env role >> Follower.run env
     Candidate -> setRole env role >> Candidate.run env
     Leader -> setRole env role >> Leader.run env
-    Disabled -> Disabled.run env
+    Disabled -> Disabled.run env -- remember the previous role
   run env role'
 
 -- | Start a Raft server with the specified environment and peers.

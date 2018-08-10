@@ -35,7 +35,7 @@ run env = bracket (startLeaderHeartbeatTimer env) T.cancelTimer $ loop
         Superseded -> loop timer
         -- Waited too long for a heartbeat message from the leader.
         Timeout -> pure Candidate
-        Controlled Disable -> pure Disabled
+        Controlled (SetRole role) -> pure role
         Controlled _ -> loop timer
 
 processAppendEntries :: Env -> T.Ref -> AppendEntries -> Process (Status ())

@@ -1,5 +1,6 @@
 {-# LANGUAGE DeriveGeneric         #-}
 {-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE RecordWildCards #-}
 
 module Raft.Messages where
 
@@ -7,6 +8,7 @@ import           Control.Distributed.Process (SendPort, ProcessId)
 import           Data.Binary
 import           Data.Typeable
 import           GHC.Generics
+import Data.Text.Prettyprint.Doc
 
 import           Raft.Types
 
@@ -41,7 +43,7 @@ instance Binary Ballot
 
 
 data Command =
-  Disable | Enable
+  SetRole Role | Enable
   deriving (Generic, Show, Typeable)
 
 instance Binary Command
@@ -58,6 +60,14 @@ data InspectRequest = InspectRequest
 
 instance Binary InspectRequest
 
+instance Pretty InspectReply where
+  pretty InspectReply {..} =
+    let votedForDoc = case votedFor of
+          Just pid -> viaShow pid
+          Nothing -> "NotVoted"
+    in pretty term <+> viaShow role <+> votedForDoc
+
+
 data InspectReply = InspectReply
   { role :: Role
   , term :: Int
@@ -67,7 +77,10 @@ data InspectReply = InspectReply
 instance Binary InspectReply
 
 disable :: Control
-disable = Control Disable
+disable = Control (SetRole Disabled)
 
 enable :: Control
 enable = Control Enable
+
+setRole :: Role -> Control
+setRole = Control . SetRole
