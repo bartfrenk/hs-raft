@@ -60,7 +60,7 @@ setRole = control "setRole" *> (SetRole <$> role <*> integer)
 command :: CharStream s => Parser s (Maybe Command)
 command =
   Just <$> (try disable <|> try enable <|> try inspect <|> setRole <|> quit) <|>
-  whitespace *> pure Nothing
+  (whitespace *> pure Nothing) <?> "command"
 
 parse :: String -> Either ParseError (Maybe Command)
 parse s = runParser command () "" s
