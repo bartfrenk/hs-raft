@@ -45,6 +45,7 @@ completions =
   , "\\inspect"
   , "\\quit"
   , "\\setRole"
+  , "\\send"
   , "leader"
   , "follower"
   , "candidate"
@@ -123,7 +124,14 @@ processCommand env (SetRole role idx) =
     pid <- lookupNode env idx
     lift $ send pid (M.setRole role)
     pure $ "Set role of " ++ show idx ++ " to " ++ show role
+processCommand env (SendCommand cmd idx) =
+  printPretty $ do
+    pid <- lookupNode env idx
+    sender <- lift $ getSelfPid
+    lift $ send pid (M.SubmitCommand { cmd = cmd, sender = sender })
+    pure $ "Sent command " ++ cmd ++ " to " ++ show idx
 processCommand _ Quit = error "Can not process Quit command"
+
 
 for :: [a] -> (a -> b) -> [b]
 for = flip fmap

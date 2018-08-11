@@ -31,15 +31,15 @@ masterless n nids name cont = do
     loop self knownPids
       | length knownPids == n = pure knownPids
       | otherwise = do
-        WhereIsReply name' mpid <- expect
-        case mpid of
-          Just pid ->
-            if (pid `elem` knownPids) || (name /= name')
+          WhereIsReply name' mpid <- expect
+          case mpid of
+            Just pid ->
+              if (pid `elem` knownPids) || (name /= name')
               then loop self knownPids
               else do
                 send pid $ WhereIsReply name $ Just self
                 loop self (pid : knownPids)
-          Nothing -> loop self knownPids
+            Nothing -> loop self knownPids
 
 data GetSlaves =
   GetSlaves ProcessId

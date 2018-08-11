@@ -4,6 +4,7 @@
 import           Control.Distributed.Process
 import           Control.Distributed.Process.Backend.SimpleLocalnet
 import           Control.Distributed.Process.Node                   hiding (newLocalNode)
+import           Data.Proxy
 import           Data.Semigroup                                     ((<>))
 import           Options.Applicative
 import           System.Random
@@ -17,8 +18,8 @@ import           Raft
 raftConfig :: Raft.Config
 raftConfig =
   defaultConfig
-  { electionTimeout = (milliseconds 150, milliseconds 300)
-  , heartbeatInterval = milliseconds 1
+  { electionTimeout = (milliseconds 1000, milliseconds 2000)
+  , heartbeatInterval = milliseconds 200
   }
 
 data Settings = Settings
@@ -41,6 +42,10 @@ parseCommandLine = do
       option auto (long "port" <> short 'p' <> value defaultPort) <*>
       switch (long "local" <> help "Run all Raft instances in the same process")
 
+-- | Determines the type of the commands that started Raft instances accept.
+cmdProxy :: Proxy String
+cmdProxy = Proxy
+
 -- | Run a single Raft instance on a freshly created local node.
 runDistributed :: Settings -> IO ()
 runDistributed Settings {..} = do
@@ -51,7 +56,7 @@ runDistributed Settings {..} = do
   runProcess node (process nids g)
   where
     process nids g = do
-      masterless nodeCount nids "raft" (start g raftConfig)
+      masterless nodeCount nids "raft" (start cmdProxy g raftConfig)
 
 runLocal :: Settings -> IO ()
 runLocal Settings {..} = do
@@ -62,7 +67,7 @@ runLocal Settings {..} = do
     process =
       master nodeCount "raft" $ \peers -> do
         g <- liftIO $ mkStdGen <$> randomIO -- different timeouts required at each node
-        start g raftConfig peers
+        start cmdProxy g raftConfig peers
 
 -- | Start one, or more Raft instances, depending on the settings.
 run :: Settings -> IO ()
