@@ -12,14 +12,14 @@ import Raft.Shared
 
 -- | Starts the timer that sends a tick when too much time passes between
 -- subsequent heartbeat messages.
-startLeaderHeartbeatTimer :: Env -> Process T.Ref
+startLeaderHeartbeatTimer :: Env cmd -> Process T.Ref
 startLeaderHeartbeatTimer env = do
   d <- drawLeaderHeartbeatTimeout env
   pid <- getSelfPid
   T.startTimer d pid T.Tick
 
 -- | Runs the server in the `follower` role.
-run :: Env -> Process Role
+run :: RaftCommand cmd => Env cmd -> Process Role
 run env = bracket (startLeaderHeartbeatTimer env) T.cancelTimer $ loop
   where
     loop timer = do
@@ -38,14 +38,16 @@ run env = bracket (startLeaderHeartbeatTimer env) T.cancelTimer $ loop
         Controlled (SetRole role) -> pure role
         Controlled _ -> loop timer
 
-processAppendEntries :: Env -> T.Ref -> AppendEntries -> Process (Status ())
+
+processAppendEntries :: Env cmd -> T.Ref -> AppendEntries cmd -> Process (Status ())
 processAppendEntries env timer msg =
-  let t' = term (msg :: AppendEntries)
+  let t' = term msg
+      s = aeSender msg
       cont = T.resetTimer timer >> (pure $ InProgress ())
       superseded = T.resetTimer timer
   in do
     status <- checkTerm env t' cont superseded
-    send (sender msg) =<< newAppendEntriesResp env msg
+    send s =<< newAppendEntriesResp env msg
     pure status
 
 

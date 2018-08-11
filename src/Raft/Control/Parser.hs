@@ -8,7 +8,7 @@ module Raft.Control.Parser
 
 import           Control.Monad
 import           Data.Functor.Identity
-import           Text.Parsec
+import           Text.Parsec hiding (parse)
 
 import           Raft.Types            (Role (..))
 
@@ -22,6 +22,8 @@ data Command
   | SetRole Role
             Int
   | Inspect (Maybe Int)
+  | SendCommand String
+                Int -- TODO: Better to parametrize the command type
   | Quit
   deriving (Eq, Show)
 
@@ -57,9 +59,16 @@ setRole = control "setRole" *> (SetRole <$> role <*> integer)
     follower = lexeme (string "follower") *> pure Follower
     candidate = lexeme (string "candidate") *> pure Candidate
 
+sendCommand :: CharStream s => Parser s Command
+sendCommand = control "send" *> (SendCommand <$> cmd <*> integer)
+  where
+    cmd = lexeme $ many1 (noneOf " \t")
+
 command :: CharStream s => Parser s (Maybe Command)
 command =
-  Just <$> (try disable <|> try enable <|> try inspect <|> setRole <|> quit) <|>
+  Just <$>
+  (try disable <|> try enable <|> try inspect <|> try sendCommand <|> setRole <|>
+   quit) <|>
   (whitespace *> pure Nothing) <?> "command"
 
 parse :: String -> Either ParseError (Maybe Command)

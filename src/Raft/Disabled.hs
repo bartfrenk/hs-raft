@@ -7,7 +7,7 @@ import Raft.State as State
 import Raft.Types
 import Raft.Shared
 
-run :: Env -> Process Role
+run :: Env cmd -> Process Role
 run env = do
   status <- receiveWait
     [ match $ processControl env ()

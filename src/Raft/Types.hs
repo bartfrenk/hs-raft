@@ -12,6 +12,7 @@
 module Raft.Types where
 
 import           Control.Distributed.Process
+import           Control.Distributed.Process.Serializable
 import           Data.Binary
 import           GHC.Generics
 
@@ -27,3 +28,5 @@ instance Binary Role
 type PeerID = ProcessId
 
 type PeerAddress = ProcessId
+
+type RaftCommand cmd = (Serializable cmd, Show cmd)

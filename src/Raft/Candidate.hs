@@ -29,7 +29,7 @@ result Election{..} = let threshold = (nPeers `div` 2) + 1
                  then Loss
                  else Inconclusive
 
-processVote :: Env -> Election -> Vote -> Process (Status Election)
+processVote :: Env cmd -> Election -> Vote -> Process (Status Election)
 processVote env e vote = do
   t <- getTerm env
   let t' = term (vote :: Vote)
@@ -43,29 +43,30 @@ processVote env e vote = do
 processTimeout :: T.Tick -> Process (Status Election)
 processTimeout _ = pure Timeout
 
-processAppendEntries :: Env -> a -> AppendEntries -> Process (Status a)
+processAppendEntries :: Env cmd -> a -> AppendEntries cmd -> Process (Status a)
 processAppendEntries env x msg = do
   t <- getTerm env
-  let t' = term (msg :: AppendEntries)
+  let t' = term msg
   status <- if t' < t -- Note that the candidate is superseded when t = t'
     then pure $ InProgress x
     else setTerm env t' >> pure Superseded
   resp <- newAppendEntriesResp env msg
-  send (sender msg) resp
+  send (aeSender msg) resp
   pure status
+
 
 -- | Starts the timer that sends a @Tick@ message to indicate that the election
 -- timed out.
-startElectionTimer :: Env -> Process T.Ref
+startElectionTimer :: Env cmd -> Process T.Ref
 startElectionTimer env = do
   d <- drawElectionTimeout env
-  say $ "Election timeout: " ++ show d
+  -- say $ "Election timeout: " ++ show d
   pid <- getSelfPid
   T.startTimer d pid T.Tick
 
 -- | Runs the server in the `candidate` role. The return value of this function
 -- is the new role to assume.
-run :: Env -> Process Role
+run :: RaftCommand cmd => Env cmd -> Process Role
 run env = bracket (startElectionTimer env) T.cancelTimer $ \_ -> do
   incTerm env
   voteFor env =<< getSelfID env
@@ -110,6 +111,6 @@ run env = bracket (startElectionTimer env) T.cancelTimer $ \_ -> do
     sendSingleBallot t selfID peer = do
       (s, r) <- newChan
       let ballot =
-            Ballot { term = t, candidateID = selfID, sendPort = s }
+            Ballot { bTerm = t, candidateID = selfID, sendPort = s }
       send peer ballot
       pure r

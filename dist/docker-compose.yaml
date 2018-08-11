@@ -1,0 +1,43 @@
+version: "2.1"
+services:
+  raft-0:
+    container_name: raft-0
+    build:
+      context: .
+      args:
+        executable: raft
+    command: -n 3 --host 10.30.10.10 --port 4000
+    networks:
+      raft-net:
+        ipv4_address: 10.30.10.10
+
+  raft-1:
+    container_name: raft-1
+    build:
+      context: .
+      args:
+        executable: raft
+    command: -n 3 --host 10.30.10.11 --port 4000
+    networks:
+      raft-net:
+        ipv4_address: 10.30.10.11
+
+  raft-2:
+    container_name: raft-2
+    build:
+      context: .
+      args:
+        executable: raft
+    command: -n 3 --host 10.30.10.12 --port 4000
+    networks:
+      raft-net:
+        ipv4_address: 10.30.10.12
+
+networks:
+  raft-net:
+    driver: bridge
+    name: raft-net
+    ipam:
+      driver: default
+      config:
+      - subnet: 10.30.0.0/16
