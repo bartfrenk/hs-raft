@@ -3,7 +3,7 @@
 ## Description
 
 Implementation of the Raft distributed consensus algorithm using
-CloudHaskell. Work-in-progress.
+CloudHaskell. **Work in progress**.
 
 This repository contains a [project file](./docs/project.org).
 
