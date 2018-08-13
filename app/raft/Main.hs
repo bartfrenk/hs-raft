@@ -16,11 +16,10 @@ import           Utils.Network                                      (getFreePort
 import           Raft
 
 raftConfig :: Raft.Config
-raftConfig =
-  defaultConfig
-  { electionTimeout = (milliseconds 1000, milliseconds 2000)
-  , heartbeatInterval = milliseconds 200
-  }
+raftConfig = defaultConfig
+  -- { electionTimeout = (milliseconds 1000, milliseconds 2000)
+  -- , heartbeatInterval = milliseconds 200
+  -- }
 
 data Settings = Settings
   { nodeCount  :: !Int
