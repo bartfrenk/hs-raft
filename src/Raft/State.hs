@@ -100,14 +100,12 @@ getLogTerms Env{state} =
 defaultConfig :: Config
 defaultConfig =
   Config
+  {
     -- Maximum time an election may last. Also, the maximum time a follower
     -- can go without hearing from the leader.
-  {
-    electionTimeout = (milliseconds 5000, milliseconds 10000)
-    -- electionTimeout = (milliseconds 150, milliseconds 300)
+    electionTimeout = (milliseconds 150, milliseconds 300)
     -- Time between subsequent leader heartbeats.
-  , heartbeatInterval = microseconds 1000000
-  --, heartbeatInterval = microseconds 500
+  , heartbeatInterval = microseconds 500
   }
 
 data Config = Config
