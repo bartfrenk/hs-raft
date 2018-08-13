@@ -1,3 +1,4 @@
+# Cannot use version 3 since it does not support static IP addresses
 version: "2.1"
 services:
   raft-0:
@@ -32,6 +33,21 @@ services:
     networks:
       raft-net:
         ipv4_address: 10.30.10.12
+
+  raft-control:
+    container_name: raft-control
+    build:
+      context: .
+      args:
+        executable: raft-control
+    command: --host 10.30.20.0
+    depends_on:
+      - raft-0
+      - raft-1
+      - raft-2
+    networks:
+      raft-net:
+        ipv4_address: 10.30.20.0
 
 networks:
   raft-net:

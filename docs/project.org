@@ -2,9 +2,10 @@
 #+AUTHOR: Bart Frenk
 #+EMAIL: bart.frenk@gmail.com
 
-
-* Steps
-** TODO Understand MonadBaseControl etc.
-** Use lenses for ServerState and ServerEnv
-** Abstract away noisy Control.Distributed.Lifted code
-receiveWait etc..
+* Desiderata
+** List process IDs on \inspect in raft-control (1)
+Need this for better debugging of (2)
+** Debug leader election in docker-compose (2)
+Phenomena I have seen:
+- inspect times out
+- 
