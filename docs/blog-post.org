@@ -1,0 +1,11 @@
+#+TITLE: Distributed consensus with Cloud Haskell
+#+AUTHOR: Bart Frenk
+#+EMAIL: bart.frenk@gmail.com
+
+* Disclaimer
+Not an expert. See for example the Jepsen website.
+* Background
+Some history. Paxos, Leslie Lamport.
+* Bootstrapping the nodes
+* Testing the protocol
+* References
