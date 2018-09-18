@@ -41,6 +41,7 @@ processBallot env x msg = do
     LT -> do
       -- Candidate is behind. Do not grant vote.
       let vote = Vote { granted = False, vTerm = t' }
+      say "Not voting for candidate that is behind"
       sendChan (sendPort (msg :: Ballot)) vote
       pure $ InProgress x
     EQ -> sendVote t >> (pure $ InProgress x)

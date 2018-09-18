@@ -2,3 +2,5 @@
 hs-raft.cabal
 **/.blockade
 *~
+dist/raft
+dist/raft-control

@@ -24,8 +24,8 @@ run env = bracket (startLeaderHeartbeatTimer env) T.cancelTimer $ loop
   where
     loop timer = do
       status <- receiveWait
-                [ match $ processAppendEntries env timer
-                , match $ processBallot env ()
+                [ match $ processBallot env ()
+                , match $ processAppendEntries env timer
                 , match $ processTimeout
                 , match $ processControl env ()
                 , match $ processInspectRequest env ()
@@ -52,4 +52,6 @@ processAppendEntries env timer msg =
 
 
 processTimeout :: T.Tick -> Process (Status ())
-processTimeout _ = pure $ Timeout
+processTimeout _ = do
+  say "Time out waiting for heartbeat"
+  pure $ Timeout

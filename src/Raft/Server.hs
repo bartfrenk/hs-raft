@@ -26,11 +26,19 @@ showRole Follower = "follower"
 showRole Leader = "leader"
 showRole Disabled = "disabled"
 
+clearInbox :: Process ()
+clearInbox = do
+  receiveTimeout 0 [matchUnknown $ pure ()] >>= \case
+    Nothing -> pure ()
+    Just _ -> clearInbox
+
 -- | Runs a Raft server in environment `env` with role `role`.
 run :: RaftCommand cmd => Env cmd -> Role -> Process ()
 run env role = do
   t <- getTerm env
   say $ "Running in " ++ show t ++ " as " ++ showRole role
+  clearInbox
+
   role' <-
     case role of
       Follower -> setRole env role >> Follower.run env

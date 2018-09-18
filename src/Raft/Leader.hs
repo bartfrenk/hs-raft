@@ -26,12 +26,12 @@ run env = bracket (startHeartbeatTicker env) T.cancelTimer $ loop
       status <-
         receiveWait
           [ match $ processBallot env ()
-          , match $ processTicker env
           , match $ processAppendEntries env
           , match $ processAppendEntriesResp env ()
           , match $ processControl env ()
           , match $ processInspectRequest env ()
           , match $ processSubmitCommand env
+          , match $ processTicker env
           ]
       case status of
         InProgress () -> loop timer

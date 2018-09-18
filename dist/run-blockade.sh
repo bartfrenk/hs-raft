@@ -1,7 +1,6 @@
 #!/bin/bash
 
 containers=$(docker ps --format '{{.Names}}')
-# echo "$containers"
 
 for c in $containers;
 do

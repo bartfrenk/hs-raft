@@ -19,6 +19,10 @@ data Election = Election
   , nPeers :: Int
   }
 
+instance Show Election where
+  show Election{..} = show nReceived ++ "/" ++ show nGranted ++ " (" ++ show nPeers ++ ")"
+
+
 data Result = Loss | Win | Inconclusive
 
 result :: Election -> Result
@@ -34,10 +38,13 @@ processVote env e vote = do
   t <- getTerm env
   let t' = term (vote :: Vote)
   if t' <= t
-    then pure $ InProgress $
-         if granted vote
-           then e { nReceived = nReceived e + 1, nGranted = nGranted e + 1 }
-           else e { nReceived = nReceived e + 1, nGranted = nGranted e }
+    then do
+      let r = InProgress $
+            if granted vote
+            then e { nReceived = nReceived e + 1, nGranted = nGranted e + 1 }
+            else e { nReceived = nReceived e + 1, nGranted = nGranted e }
+      say $ "Election: " ++ show r
+      pure r
     else setTerm env t' >> pure Superseded
 
 processTimeout :: T.Tick -> Process (Status Election)
@@ -48,7 +55,9 @@ processAppendEntries env x msg = do
   t <- getTerm env
   let t' = term msg
   status <- if t' < t -- Note that the candidate is superseded when t = t'
-    then pure $ InProgress x
+    then do
+      say "Contacted by outdated leader"
+      pure $ InProgress x
     else setTerm env t' >> pure Superseded
   resp <- newAppendEntriesResp env msg
   send (aeSender msg) resp
@@ -89,10 +98,14 @@ run env = bracket (startElectionTimer env) T.cancelTimer $ \_ -> do
 
       case status of
         InProgress e -> case result e of
-          Loss -> pure Follower
+          Loss -> do
+            say "Lost election"
+            pure Follower
           Win -> pure Leader
           Inconclusive -> awaitVotes e
-        Timeout -> pure Candidate
+        Timeout -> do
+          say "Election timed out"
+          pure Candidate
         Superseded -> pure Follower
         Controlled (SetRole role) -> pure role
         Controlled _ -> awaitVotes e
